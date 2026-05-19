@@ -1,0 +1,40 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Full Clean",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"${workspaceFolder}/.vscode/clean.sh"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "C# Scratchpad: Run Current File",
+			"type": "shell",
+			"command": "dotnet run --file \"${file}\"",
+			"group": "none",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated", // Reuses the same terminal
+				"clear": true, // Clears the screen before each run
+				"focus": true, // Jumps to the terminal so you can see output/input
+				"showReuseMessage": false // Removes the "Terminal will be reused" text
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "dotnet format",
+			"type": "shell",
+			"command": "dotnet format",
+			"problemMatcher": []
+		}
+	]
+}

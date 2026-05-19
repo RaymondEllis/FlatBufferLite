@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="FlatBufferLite.SourceGen/FlatBufferLite.SourceGen.csproj" />
+  <Project Path="FlatBufferLite.Tests/FlatBufferLite.Tests.csproj" />
+  <Project Path="FlatBufferLite/FlatBufferLite.csproj" />
+</Solution>
