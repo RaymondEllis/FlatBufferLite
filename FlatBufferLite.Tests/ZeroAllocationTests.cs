@@ -1,0 +1,156 @@
+using FlatBufferLite.Sample;
+using System.Runtime.CompilerServices;
+
+namespace FlatBufferLite.Tests;
+
+public class ZeroAllocationTests
+{
+	static byte[] BuildScalarBuffer()
+	{
+		var buf = new byte[256];
+		var b = new FlatBufferBuilder(buf);
+		int tp = b.StartTable(4, 16, 4);
+		Vtable.Write<int>(b.Buffer, tp, 4, 4, 1, 0);
+		Vtable.Write<int>(b.Buffer, tp, 6, 8, 2, 0);
+		Vtable.Write<int>(b.Buffer, tp, 8, 12, 3, 0);
+		Vtable.Write<int>(b.Buffer, tp, 10, 16, 4, 0);
+		b.MarkRoot(tp);
+		return b.AsSpan().ToArray();
+	}
+
+	[Fact]
+	public void TableScalarReads_DoNotAllocate()
+	{
+		var bytes = BuildScalarBuffer();
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		long sum = 0;
+		for (int i = 0; i < 10_000; i++)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			sum += Vtable.Read<int>(span, pos, 4, 0);
+			sum += Vtable.Read<int>(span, pos, 6, 0);
+			sum += Vtable.Read<int>(span, pos, 8, 0);
+			sum += Vtable.Read<int>(span, pos, 10, 0);
+		}
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+		Assert.Equal(100_000L, sum);
+	}
+
+	[Fact]
+	public void VectorAsSpan_DoesNotAllocate()
+	{
+		var data = new int[64];
+		for (int i = 0; i < data.Length; i++)
+			data[i] = i;
+
+		var raw = new byte[512];
+		var b = new FlatBufferBuilder(raw);
+		int vec = b.CreateVector<int>(data);
+		int tp = b.StartTable(1, 4, 4);
+		Vtable.WriteOffset(b.Buffer, tp, 4, 4, vec);
+		b.MarkRoot(tp);
+		var bytes = b.AsSpan().ToArray();
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		long sum = 0;
+		for (int i = 0; i < 5_000; i++)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			var v = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 4));
+			var s = v.AsSpan;
+			for (int j = 0; j < s.Length; j++)
+				sum += s[j];
+		}
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+	}
+
+	[Fact]
+	public void StringAsBytes_DoesNotAllocate()
+	{
+		var raw = new byte[256];
+		var b = new FlatBufferBuilder(raw);
+		int s = b.CreateString("performance"u8);
+		int tp = b.StartTable(1, 4, 4);
+		Vtable.WriteOffset(b.Buffer, tp, 4, 4, s);
+		b.MarkRoot(tp);
+		var bytes = b.AsSpan().ToArray();
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		int total = 0;
+		for (int i = 0; i < 5_000; i++)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			var str = new FlatString(span, Vtable.ReadIndirect(span, pos, 4));
+			total += str.AsBytes.Length;
+		}
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+		Assert.Equal(5_000 * "performance"u8.Length, total);
+	}
+
+	[Fact]
+	public void Builder_RoundTrip_DoesNotAllocate()
+	{
+		var buf = new byte[1024];
+		ReadOnlySpan<byte> name = "warmup"u8;
+		ReadOnlySpan<int> data = new int[] { 1, 2, 3, 4, 5 };
+
+		Warm(buf, name, data);
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		for (int i = 0; i < 1000; i++)
+			Round(buf, name, data);
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Warm(Span<byte> buf, ReadOnlySpan<byte> name, ReadOnlySpan<int> data)
+			=> Round(buf, name, data);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Round(Span<byte> buf, ReadOnlySpan<byte> name, ReadOnlySpan<int> data)
+		{
+			var b = new FlatBufferBuilder(buf);
+			int s = b.CreateString(name);
+			int v = b.CreateVector<int>(data);
+			int tp = b.StartTable(3, 12, 4);
+			Vtable.Write<int>(b.Buffer, tp, 4, 4, 7, 0);
+			Vtable.WriteOffset(b.Buffer, tp, 6, 8, s);
+			Vtable.WriteOffset(b.Buffer, tp, 8, 12, v);
+		}
+	}
+
+	[Fact]
+	public void GeneratedBuilder_DoesNotAllocate()
+	{
+		var buf = new byte[1024];
+		Warm(buf);
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		for (int i = 0; i < 1000; i++)
+			Round(buf);
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Warm(Span<byte> buf) => Round(buf);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Round(Span<byte> buf)
+		{
+			var b = new FlatBufferBuilder(buf);
+			int name = b.CreateString("Alice"u8);
+			new Player(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { x = 1.0f, y = 2.0f, z = 3.0f });
+
+			var span = b.AsSpan();
+			var read = Player.GetRootAs(span);
+			_ = read.Id + read.Hp;
+		}
+	}
+}

@@ -1,0 +1,24 @@
+namespace FlatBufferLite.Sample;
+
+enum Status : ubyte {
+	Active = 0,
+	Inactive = 1,
+	Pending = 2,
+}
+
+struct Vec3 {
+	x: float;
+	y: float;
+	z: float;
+}
+
+table Player {
+	id: int;
+	name: string;
+	hp: short = 100;
+	status: Status;
+	position: Vec3;
+	inventory: [int];
+}
+
+root_type Player;

@@ -1,0 +1,322 @@
+using FlatBufferLite.AllTypes;
+
+namespace FlatBufferLite.Tests;
+
+public class AllTypesTests
+{
+	[Fact]
+	public void Scalars_AllTypesRoundTrip()
+	{
+		Span<byte> buf = stackalloc byte[256];
+		var b = new FlatBufferBuilder(buf);
+		var sb = new Scalars(ref b);
+		sb.BoolVal = true;
+		sb.ByteVal = -5;
+		sb.UbyteVal = 200;
+		sb.ShortVal = -300;
+		sb.UshortVal = 60000;
+		sb.IntVal = -70000;
+		sb.UintVal = 3_000_000_000u;
+		sb.LongVal = -5_000_000_000L;
+		sb.UlongVal = 10_000_000_000_000UL;
+		sb.FloatVal = 1.5f;
+		sb.DoubleVal = 3.141592653589793;
+		sb.DefaultShort = 99;
+		sb.DefaultBool = false;
+
+		var span = b.AsSpan();
+		var s = Scalars.GetRootAs(span);
+
+		Assert.True(s.BoolVal);
+		Assert.Equal((sbyte)-5, s.ByteVal);
+		Assert.Equal((byte)200, s.UbyteVal);
+		Assert.Equal((short)-300, s.ShortVal);
+		Assert.Equal((ushort)60000, s.UshortVal);
+		Assert.Equal(-70000, s.IntVal);
+		Assert.Equal(3_000_000_000u, s.UintVal);
+		Assert.Equal(-5_000_000_000L, s.LongVal);
+		Assert.Equal(10_000_000_000_000UL, s.UlongVal);
+		Assert.Equal(1.5f, s.FloatVal);
+		Assert.Equal(3.141592653589793, s.DoubleVal);
+		Assert.Equal((short)99, s.DefaultShort);
+		Assert.False(s.DefaultBool);
+	}
+
+	[Fact]
+	public void Scalars_DefaultsReturnedWhenAbsent()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		new Scalars(ref b);
+
+		var span = b.AsSpan();
+		var s = Scalars.GetRootAs(span);
+
+		Assert.False(s.BoolVal);
+		Assert.Equal((sbyte)0, s.ByteVal);
+		Assert.Equal((byte)0, s.UbyteVal);
+		Assert.Equal((short)0, s.ShortVal);
+		Assert.Equal((ushort)0, s.UshortVal);
+		Assert.Equal(0, s.IntVal);
+		Assert.Equal(0u, s.UintVal);
+		Assert.Equal(0L, s.LongVal);
+		Assert.Equal(0UL, s.UlongVal);
+		Assert.Equal(0f, s.FloatVal);
+		Assert.Equal(0d, s.DoubleVal);
+		Assert.Equal((short)42, s.DefaultShort);
+		Assert.True(s.DefaultBool);
+	}
+
+	[Fact]
+	public void Score_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var sb = new Score(ref b);
+		sb.Value = 9_876_543_210L;
+		var sc = new Score(b.Buffer, sb.Pos);
+		Assert.Equal(9_876_543_210L, sc.Value);
+	}
+
+	[Fact]
+	public void Refs_AllFieldsRoundTrip()
+	{
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+
+		int hello = b.CreateString("hello world"u8);
+
+		var score = new Score(ref b, value: 42L);
+		var rb = new Refs(ref b, strVal: hello, scoreVal: score.Pos, vec2Val: new Vec2 { x = 3.0f, y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
+		var r = new Refs(b.Buffer, rb.Pos);
+
+		Assert.Equal("hello world", r.StrVal.ToString());
+		Assert.Equal(42L, r.ScoreVal.Value);
+		var v = r.Vec2Val;
+		Assert.Equal(3.0f, v.x);
+		Assert.Equal(-1.5f, v.y);
+		Assert.Equal(Color.Blue, r.ColorVal);
+		Assert.Equal(Permissions.ReadWrite, r.PermsVal);
+	}
+
+	[Fact]
+	public void Refs_AbsentRefsAreInvalid()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var rb = new Refs(ref b);
+		var r = new Refs(b.Buffer, rb.Pos);
+
+		Assert.False(r.StrVal.IsValid);
+		Assert.False(r.ScoreVal.IsValid);
+		Assert.Equal(Color.Red, r.ColorVal);
+		Assert.Equal(Permissions.None, r.PermsVal);
+	}
+
+	[Fact]
+	public void Vectors_ScalarVectorsRoundTrip()
+	{
+		ReadOnlySpan<int> ints = stackalloc int[] { -1, 0, 1, int.MaxValue };
+		ReadOnlySpan<byte> bytes = stackalloc byte[] { 0, 127, 255 };
+		ReadOnlySpan<float> floats = stackalloc float[] { 1.0f, -1.0f, 0.5f };
+		ReadOnlySpan<long> longs = stackalloc long[] { long.MinValue, 0L, long.MaxValue };
+
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+		int iv = b.CreateVector(ints);
+		int bv = b.CreateVector(bytes);
+		int fv = b.CreateVector(floats);
+		int lv = b.CreateVector(longs);
+
+		var vb = new Vectors(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
+		var v = new Vectors(b.Buffer, vb.Pos);
+
+		var ri = v.IntVec.AsSpan;
+		Assert.Equal(4, ri.Length);
+		Assert.Equal(-1, ri[0]);
+		Assert.Equal(int.MaxValue, ri[3]);
+
+		var rb2 = v.ByteVec.AsSpan;
+		Assert.Equal(3, rb2.Length);
+		Assert.Equal((byte)127, rb2[1]);
+
+		var rf = v.FloatVec.AsSpan;
+		Assert.Equal(3, rf.Length);
+		Assert.Equal(0.5f, rf[2]);
+
+		var rl = v.LongVec.AsSpan;
+		Assert.Equal(3, rl.Length);
+		Assert.Equal(long.MaxValue, rl[2]);
+	}
+
+	[Fact]
+	public void Vectors_StringVector_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+
+		int s0 = b.CreateString("alpha"u8);
+		int s1 = b.CreateString("beta"u8);
+		int s2 = b.CreateString("gamma"u8);
+		ReadOnlySpan<int> offsets = stackalloc int[] { s0, s1, s2 };
+		int strVec = b.CreateVectorOfOffsets(offsets);
+
+		var vb = new Vectors(ref b, strVec: strVec);
+		var fv = new Vectors(b.Buffer, vb.Pos).StrVec;
+
+		Assert.Equal(3, fv.Length);
+		Assert.Equal("alpha", fv[0].ToString());
+		Assert.Equal("beta", fv[1].ToString());
+		Assert.Equal("gamma", fv[2].ToString());
+	}
+
+	[Fact]
+	public void Vectors_StructVector_RoundTrips()
+	{
+		ReadOnlySpan<Vec2> vecs = stackalloc Vec2[]
+		{
+			new Vec2 { x = 1.0f, y = 2.0f },
+			new Vec2 { x = -3.5f, y = 4.25f },
+			new Vec2 { x = 0.0f, y = -0.5f },
+		};
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+		int vv = b.CreateVector(vecs);
+
+		var vb = new Vectors(ref b, vec2Vec: vv);
+		var fv = new Vectors(b.Buffer, vb.Pos).Vec2Vec;
+
+		Assert.Equal(3, fv.Length);
+		var s = fv.AsSpan;
+		Assert.Equal(1.0f, s[0].x);
+		Assert.Equal(-3.5f, s[1].x);
+		Assert.Equal(-0.5f, s[2].y);
+	}
+
+	[Fact]
+	public void Vectors_EmptyVectorIsValid()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		int empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
+		var vb = new Vectors(ref b, intVec: empty);
+		var fv = new Vectors(b.Buffer, vb.Pos).IntVec;
+
+		Assert.True(fv.IsValid);
+		Assert.Equal(0, fv.Length);
+	}
+
+	[Fact]
+	public void Vectors_AbsentVectorIsInvalid()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var vb = new Vectors(ref b);
+		var v = new Vectors(b.Buffer, vb.Pos);
+
+		Assert.False(v.IntVec.IsValid);
+		Assert.False(v.StrVec.IsValid);
+		Assert.False(v.Vec2Vec.IsValid);
+	}
+
+	[Fact]
+	public void BitFlags_GeneratedValuesArePowersOfTwo()
+	{
+		Assert.Equal(1u, (uint)Flags.Read);
+		Assert.Equal(2u, (uint)Flags.Write);
+		Assert.Equal(4u, (uint)Flags.Execute);
+	}
+
+	[Fact]
+	public void BitFlags_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var fb = new Flagged(ref b, perms: Flags.Read | Flags.Execute);
+		var f = new Flagged(b.Buffer, fb.Pos);
+		Assert.Equal(Flags.Read | Flags.Execute, f.Perms);
+		Assert.Equal(5u, (uint)f.Perms);
+	}
+
+	[Fact]
+	public void BitFlags_DefaultIsZero()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var fb = new Flagged(ref b);
+		var f = new Flagged(b.Buffer, fb.Pos);
+		Assert.Equal(0u, (uint)f.Perms);
+	}
+
+	[Fact]
+	public void Union_CircleVariant_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+
+		int myCircle = b.CreateString("my-circle"u8);
+		int afterUnion = b.CreateString("after-union"u8);
+
+		var cb = new Circle(ref b, radius: 5.0f);
+		var wu = new WithUnion(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.Pos, tag: afterUnion);
+		var read = new WithUnion(b.Buffer, wu.Pos);
+
+		Assert.Equal("my-circle", read.Name.ToString());
+		Assert.Equal(99, read.Value);
+		Assert.Equal(ShapeKind.Circle, read.ShapeType);
+		var s = read.Shape;
+		Assert.True(s.HasValue);
+		Assert.True(s.TryGetAsCircle(out var circle));
+		Assert.Equal(5.0f, circle.Radius);
+		Assert.False(s.TryGetAsRectangle(out _));
+		Assert.Equal("after-union", read.Tag.ToString());
+	}
+
+	[Fact]
+	public void Union_RectangleVariant_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+
+		int nameOff = b.CreateString("my-rect"u8);
+
+		var rb = new Rectangle(ref b, width: 3.0f, height: 7.5f);
+		var wu = new WithUnion(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.Pos);
+		var read = new WithUnion(b.Buffer, wu.Pos);
+
+		Assert.Equal(ShapeKind.Rectangle, read.ShapeType);
+		var s = read.Shape;
+		Assert.True(s.TryGetAsRectangle(out var rect));
+		Assert.Equal(3.0f, rect.Width);
+		Assert.Equal(7.5f, rect.Height);
+		Assert.False(s.TryGetAsCircle(out _));
+	}
+
+	[Fact]
+	public void Union_AbsentUnionIsNone()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlatBufferBuilder(buf);
+		var wu = new WithUnion(ref b);
+		var read = new WithUnion(b.Buffer, wu.Pos);
+
+		Assert.Equal(ShapeKind.NONE, read.ShapeType);
+		Assert.False(read.Shape.HasValue);
+	}
+
+	[Fact]
+	public void Union_FieldAfterUnion_CorrectVTableOffset()
+	{
+		Span<byte> buf = stackalloc byte[512];
+		var b = new FlatBufferBuilder(buf);
+
+		int sentinel = b.CreateString("sentinel"u8);
+
+		var cb = new Circle(ref b, radius: 1.0f);
+		var wu = new WithUnion(ref b, shapeType: ShapeKind.Circle, shape: cb.Pos, tag: sentinel);
+		var read = new WithUnion(b.Buffer, wu.Pos);
+
+		Assert.Equal("sentinel", read.Tag.ToString());
+		Assert.Equal(ShapeKind.Circle, read.ShapeType);
+	}
+}

@@ -1,0 +1,98 @@
+// Exercises every type supported by FlatBufferLite: all scalars, string,
+// enum, struct, nested table, and vectors of each.
+namespace FlatBufferLite.AllTypes;
+
+enum Color : ubyte {
+	Red = 0,
+	Green = 1,
+	Blue = 2,
+}
+
+enum Permissions : uint {
+	None = 0,
+	ReadOnly = 1,
+	ReadWrite = 2,
+}
+
+struct Vec2 {
+	x: float;
+	y: float;
+}
+
+table Score {
+	value: long;
+}
+
+// One field per scalar type plus two fields with non-zero defaults.
+table Scalars {
+	bool_val: bool;
+	byte_val: byte;
+	ubyte_val: ubyte;
+	short_val: short;
+	ushort_val: ushort;
+	int_val: int;
+	uint_val: uint;
+	long_val: long;
+	ulong_val: ulong;
+	float_val: float;
+	double_val: double;
+	default_short: short = 42;
+	default_bool: bool = true;
+}
+
+// Reference types: string, nested table, inline struct, and enum fields.
+table Refs {
+	str_val: string;
+	score_val: Score;
+	vec2_val: Vec2;
+	color_val: Color;
+	perms_val: Permissions;
+}
+
+// Vectors of every supported element kind.
+table Vectors {
+	int_vec: [int];
+	byte_vec: [ubyte];
+	float_vec: [float];
+	long_vec: [long];
+	str_vec: [string];
+	vec2_vec: [Vec2];
+}
+
+// bit_flags enum: values are bit positions, generated as 1<<N.
+enum Flags : uint (bit_flags) {
+	Read,
+	Write,
+	Execute,
+}
+
+// Tables used as union members.
+table Circle {
+	radius: float;
+}
+
+table Rectangle {
+	width: float;
+	height: float;
+}
+
+union Shape {
+	Circle,
+	Rectangle,
+}
+
+// Exercises bit_flags enum as a table field.
+table Flagged {
+	perms: Flags;
+}
+
+// Exercises a union field plus a scalar field declared after it to verify
+// the union's implicit type slot does not clobber subsequent vtable offsets.
+table WithUnion {
+	name: string;
+	value: int;
+	shape: Shape;
+	tag: string;
+}
+
+root_type Scalars;

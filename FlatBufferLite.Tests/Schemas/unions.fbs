@@ -1,0 +1,16 @@
+namespace FlatBufferLite.Unions;
+
+table Rect { w: float; h: float; }
+table Circle { r: float; }
+
+union Shape { Rect, Circle }
+
+// 'count' is declared after the union to verify the union's implicit type
+// slot does not corrupt subsequent vtable offsets.
+table Scene {
+	name: string;
+	shape: Shape;
+	count: int;
+}
+
+root_type Scene;
