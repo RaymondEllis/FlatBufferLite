@@ -11,6 +11,7 @@
 - We do not write standard .net code, we write high performance code.
 - Prefer fields over properties, and structs over classes, unless reference semantics are required. The performance difference with properties is significant and we should use structs to be more aware of allocations.
 - Target .NET 10, Windows and Linux, best if we can be fully cross platform and no native libs.
+- KISS
 
 ## Docs
 

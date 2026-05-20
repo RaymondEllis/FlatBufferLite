@@ -35,6 +35,18 @@
 			"type": "shell",
 			"command": "dotnet format",
 			"problemMatcher": []
+		},
+		{
+			"label": "dotnet build",
+			"type": "shell",
+			"command": "dotnet build ${workspaceFolder}/FlatBufferLite.slnx",
+			"problemMatcher": ["$msCompile"]
+		},
+		{
+			"label": "dotnet test",
+			"type": "shell",
+			"command": "dotnet test ${workspaceFolder}/FlatBufferLite.Tests/FlatBufferLite.Tests.csproj --nologo",
+			"problemMatcher": ["$msCompile"]
 		}
 	]
 }
