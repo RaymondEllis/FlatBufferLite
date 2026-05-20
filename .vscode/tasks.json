@@ -47,6 +47,12 @@
 			"type": "shell",
 			"command": "dotnet test ${workspaceFolder}/FlatBufferLite.Tests/FlatBufferLite.Tests.csproj --nologo",
 			"problemMatcher": ["$msCompile"]
+		},
+		{
+			"label": "dotnet pack",
+			"type": "shell",
+			"command": "dotnet pack ${workspaceFolder}/FlatBufferLite/FlatBufferLite.csproj --configuration Release --output ${workspaceFolder}/nupkg",
+			"problemMatcher": ["$msCompile"]
 		}
 	]
 }

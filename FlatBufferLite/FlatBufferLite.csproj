@@ -8,4 +8,15 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>FlatBufferLite</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>Raymond Ellis</Authors>
+    <Description>A lightweight, high-performance FlatBuffers implementation for .NET.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/RaymondEllis/FlatBufferLite</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
 </Project>
