@@ -81,14 +81,20 @@ internal sealed class UnionDef : ISchemaDef
 
 internal sealed class Schema
 {
-	public string? RootTable;
+	public List<string> RootTypes = new();
+	public string? RootTable { get => RootTypes.Count > 0 ? RootTypes[0] : null; set { if (value != null && !RootTypes.Contains(value)) RootTypes.Add(value); } }
 	public string? FileIdentifier;
 	public string? FileExtension;
 	public string? Namespace;
+	public List<string> Includes = new();
 	public List<TableDef> Tables = new();
 	public List<StructDef> Structs = new();
 	public List<EnumDef> Enums = new();
 	public List<UnionDef> Unions = new();
+	public int LocalTableCount;
+	public int LocalStructCount;
+	public int LocalEnumCount;
+	public int LocalUnionCount;
 
 	public Dictionary<string, ISchemaDef> ByName = new();
 
@@ -103,5 +109,29 @@ internal sealed class Schema
 			ByName[e.Name] = e;
 		foreach (var u in Unions)
 			ByName[u.Name] = u;
+	}
+
+	public void MarkLocalCounts()
+	{
+		LocalTableCount = Tables.Count;
+		LocalStructCount = Structs.Count;
+		LocalEnumCount = Enums.Count;
+		LocalUnionCount = Unions.Count;
+	}
+
+	public void MergeFrom(Schema other)
+	{
+		foreach (var t in other.Tables)
+			if (!Tables.Exists(x => x.Name == t.Name))
+				Tables.Add(t);
+		foreach (var s in other.Structs)
+			if (!Structs.Exists(x => x.Name == s.Name))
+				Structs.Add(s);
+		foreach (var e in other.Enums)
+			if (!Enums.Exists(x => x.Name == e.Name))
+				Enums.Add(e);
+		foreach (var u in other.Unions)
+			if (!Unions.Exists(x => x.Name == u.Name))
+				Unions.Add(u);
 	}
 }

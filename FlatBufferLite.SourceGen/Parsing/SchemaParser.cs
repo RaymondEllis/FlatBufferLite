@@ -258,6 +258,19 @@ internal sealed class SchemaParser
 
 	public Schema Parse()
 	{
+		var schema = ParseRaw();
+		AssignUnionTags(schema);
+		schema.Index();
+		schema.MarkLocalCounts();
+		AssignStructLayout(schema);
+		ResolveUnionFieldTypes(schema);
+		AssignFieldOffsets(schema);
+		AssignTableLayout(schema);
+		return schema;
+	}
+
+	internal Schema ParseRaw()
+	{
 		var schema = new Schema();
 		while (Peek().Kind != TokenKind.EOF)
 		{
@@ -274,7 +287,7 @@ internal sealed class SchemaParser
 				case "root_type": _pos++; schema.RootTable = ParseQualifiedName(); Expect(TokenKind.Semicolon); break;
 				case "file_identifier": _pos++; schema.FileIdentifier = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
-				case "include": _pos++; Expect(TokenKind.StringLit); Expect(TokenKind.Semicolon); break;
+				case "include": _pos++; schema.Includes.Add(Expect(TokenKind.StringLit).Text); Expect(TokenKind.Semicolon); break;
 				case "attribute":
 					_pos++; if (Peek().Kind == TokenKind.StringLit)
 						_pos++;
@@ -283,6 +296,31 @@ internal sealed class SchemaParser
 				default: throw new SchemaParseException($"Unknown declaration '{t.Text}'", t.Line, t.Column);
 			}
 		}
+		schema.MarkLocalCounts();
+		return schema;
+	}
+
+	public static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver)
+	{
+		return ParseWithIncludes(source, fileResolver, new HashSet<string>(StringComparer.Ordinal));
+	}
+
+	static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver, HashSet<string> visited)
+	{
+		var parser = new SchemaParser(source);
+		var schema = parser.ParseRaw();
+
+		foreach (var include in schema.Includes)
+		{
+			if (!visited.Add(include))
+				continue;
+			var content = fileResolver(include);
+			if (content == null)
+				continue;
+			var included = ParseWithIncludes(content, fileResolver, visited);
+			schema.MergeFrom(included);
+		}
+
 		AssignUnionTags(schema);
 		schema.Index();
 		AssignStructLayout(schema);
@@ -546,7 +584,7 @@ internal sealed class SchemaParser
 		}
 	}
 
-	void AssignTableLayout(Schema schema)
+	static void AssignTableLayout(Schema schema)
 	{
 		foreach (var t in schema.Tables)
 		{
@@ -596,7 +634,7 @@ internal sealed class SchemaParser
 		}
 	}
 
-	void AssignStructLayout(Schema schema)
+	static void AssignStructLayout(Schema schema)
 	{
 		foreach (var s in schema.Structs)
 		{

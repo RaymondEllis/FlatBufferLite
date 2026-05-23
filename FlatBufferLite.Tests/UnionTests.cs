@@ -124,7 +124,7 @@ public class UnionTests
 		int sceneName = b.CreateString("scene-rect"u8);
 
 		var rectB = new Rect(ref b, w: 3.0f, h: 7.0f);
-		new Scene(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.Pos, count: 42);
+		new Scene(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);
 
 		var span = b.AsSpan();
 		var read = Scene.GetRootAs(span);
@@ -146,7 +146,7 @@ public class UnionTests
 		var b = new FlatBufferBuilder(buf);
 
 		var cb = new Circle(ref b, r: 5.5f);
-		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.Pos, count: 7);
+		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 7);
 
 		var span = b.AsSpan();
 		var read = Scene.GetRootAs(span);
@@ -181,7 +181,7 @@ public class UnionTests
 		var b = new FlatBufferBuilder(buf);
 
 		var cb = new Circle(ref b, r: 1.0f);
-		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.Pos, count: 99);
+		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 99);
 
 		var span = b.AsSpan();
 		var read = Scene.GetRootAs(span);

@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FlatBufferLite\FlatBufferLite.csproj" />
-    <ProjectReference Include="..\FlatBufferLite.SourceGen\FlatBufferLite.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\FlatBufferLite.SourceGen\FlatBufferLite.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true" />
   </ItemGroup>
 
   <ItemGroup>
