@@ -33,7 +33,7 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 			{
 				try
 				{
-					var text = at.GetText(spc.CancellationToken)?.ToString() ?? string.Empty;
+					var text = fileMap[at.Path].Text;
 					var dir = Path.GetDirectoryName(at.Path) ?? "";
 					string? Resolver(string includePath)
 					{

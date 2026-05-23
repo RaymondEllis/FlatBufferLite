@@ -261,7 +261,6 @@ internal sealed class SchemaParser
 		var schema = ParseRaw();
 		AssignUnionTags(schema);
 		schema.Index();
-		schema.MarkLocalCounts();
 		AssignStructLayout(schema);
 		ResolveUnionFieldTypes(schema);
 		AssignFieldOffsets(schema);

@@ -121,17 +121,23 @@ internal sealed class Schema
 
 	public void MergeFrom(Schema other)
 	{
+		var existing = new HashSet<string>();
+		foreach (var t in Tables) existing.Add(t.Name);
+		foreach (var s in Structs) existing.Add(s.Name);
+		foreach (var e in Enums) existing.Add(e.Name);
+		foreach (var u in Unions) existing.Add(u.Name);
+
 		foreach (var t in other.Tables)
-			if (!Tables.Exists(x => x.Name == t.Name))
+			if (existing.Add(t.Name))
 				Tables.Add(t);
 		foreach (var s in other.Structs)
-			if (!Structs.Exists(x => x.Name == s.Name))
+			if (existing.Add(s.Name))
 				Structs.Add(s);
 		foreach (var e in other.Enums)
-			if (!Enums.Exists(x => x.Name == e.Name))
+			if (existing.Add(e.Name))
 				Enums.Add(e);
 		foreach (var u in other.Unions)
-			if (!Unions.Exists(x => x.Name == u.Name))
+			if (existing.Add(u.Name))
 				Unions.Add(u);
 	}
 }
