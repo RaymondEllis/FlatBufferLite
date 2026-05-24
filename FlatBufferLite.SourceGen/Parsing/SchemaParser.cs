@@ -364,9 +364,9 @@ public sealed class SchemaParser
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		SkipMetadata();
-		Expect(TokenKind.LBrace);
 		var table = new TableDef { Name = name };
+		ParseTableMetadata(table);
+		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 			table.Fields.Add(ParseFieldDef());
 		Expect(TokenKind.RBrace);
@@ -377,13 +377,13 @@ public sealed class SchemaParser
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		SkipMetadata();
-		Expect(TokenKind.LBrace);
 		var s = new StructDef { Name = name };
+		ParseStructMetadata(s);
+		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 		{
 			var f = ParseFieldDef();
-			s.Fields.Add(new StructFieldDef { Name = f.Name, Type = f.Type });
+			s.Fields.Add(new StructFieldDef { Name = f.Name, Type = f.Type, ForceAlign = f.ForceAlign });
 		}
 		Expect(TokenKind.RBrace);
 		schema.Structs.Add(s);
@@ -499,6 +499,51 @@ public sealed class SchemaParser
 		return field;
 	}
 
+	void ParseTableMetadata(TableDef table)
+	{
+		if (Peek().Kind != TokenKind.LParen)
+			return;
+		Expect(TokenKind.LParen);
+		while (Peek().Kind != TokenKind.RParen)
+		{
+			var attr = ExpectIdent().Text;
+			switch (attr)
+			{
+				case "original_order":
+					table.OriginalOrder = true;
+					break;
+				default:
+					if (Match(TokenKind.Colon))
+						Next();
+					break;
+			}
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		Expect(TokenKind.RParen);
+	}
+
+	void ParseStructMetadata(StructDef s)
+	{
+		if (Peek().Kind != TokenKind.LParen)
+			return;
+		Expect(TokenKind.LParen);
+		while (Peek().Kind != TokenKind.RParen)
+		{
+			var attr = ExpectIdent().Text;
+			if (attr == "force_align")
+			{
+				Expect(TokenKind.Colon);
+				s.ForceAlign = (int)ParseLongLiteral();
+			}
+			else if (Match(TokenKind.Colon))
+				Next();
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		Expect(TokenKind.RParen);
+	}
+
 	void ParseFieldMetadata(FieldDef field)
 	{
 		if (Peek().Kind != TokenKind.LParen)
@@ -515,6 +560,30 @@ public sealed class SchemaParser
 				case "required":
 					field.Required = true;
 					break;
+				case "key":
+					field.IsKey = true;
+					break;
+				case "flexbuffer":
+					field.IsFlexBuffer = true;
+					break;
+				case "hash":
+					Expect(TokenKind.Colon);
+					field.HashAlgorithm = Expect(TokenKind.StringLit).Text;
+					if (!Match(TokenKind.Comma))
+						goto done;
+					continue;
+				case "nested_flatbuffer":
+					Expect(TokenKind.Colon);
+					field.NestedFlatBufferType = Expect(TokenKind.StringLit).Text;
+					if (!Match(TokenKind.Comma))
+						goto done;
+					continue;
+				case "force_align":
+					Expect(TokenKind.Colon);
+					field.ForceAlign = (int)ParseLongLiteral();
+					if (!Match(TokenKind.Comma))
+						goto done;
+					continue;
 				case "id":
 					Expect(TokenKind.Colon);
 					field.Id = (int)ParseLongLiteral();
@@ -711,10 +780,12 @@ public sealed class SchemaParser
 		foreach (var s in schema.Structs)
 		{
 			int offset = 0;
-			int maxAlign = 1;
+			int maxAlign = s.ForceAlign > 0 ? s.ForceAlign : 1;
 			foreach (var f in s.Fields)
 			{
 				int size = FieldSize(f.Type, schema, out int align);
+				if (f.ForceAlign > 0)
+					align = f.ForceAlign;
 				if (align > maxAlign)
 					maxAlign = align;
 				offset = AlignUp(offset, align);

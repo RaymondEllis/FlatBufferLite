@@ -363,4 +363,178 @@ public class SourceGenFeatureTests
 		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
 		Assert.True(FlatBufferLite.Sample.Player.GetMaxSize() >= player.GetSize());
 	}
+
+	[Fact]
+	public void FieldAttribute_Key_ParsedAndStored()
+	{
+		var source = """
+			table Entry { id: int (key); name: string; }
+			root_type Entry;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var idField = schema.Tables[0].Fields[0];
+		Assert.True(idField.IsKey);
+		Assert.False(schema.Tables[0].Fields[1].IsKey);
+	}
+
+	[Fact]
+	public void FieldAttribute_Key_LookupByKeyEmitted()
+	{
+		var source = """
+			table Entry { id: int (key); name: string; }
+			root_type Entry;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public Entry LookupByKey(int key)", code);
+	}
+
+	[Fact]
+	public void FieldAttribute_Key_StringLookupByKeyEmitted()
+	{
+		var source = """
+			table Item { name: string (key); }
+			root_type Item;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public Item LookupByKey(ReadOnlySpan<byte> key)", code);
+	}
+
+	[Fact]
+	public void FieldAttribute_Key_ScalarLookupByKey_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[1024];
+		var b = new FlatBufferBuilder(buf);
+
+		int n1 = b.CreateString("one"u8);
+		int n2 = b.CreateString("two"u8);
+		int n3 = b.CreateString("three"u8);
+
+		var e1 = new FlatBufferLite.Attr.Entry(ref b, id: 10, name: n1);
+		var e2 = new FlatBufferLite.Attr.Entry(ref b, id: 20, name: n2);
+		var e3 = new FlatBufferLite.Attr.Entry(ref b, id: 30, name: n3);
+
+		ReadOnlySpan<int> offsets = stackalloc int[] { e1.BufferPos, e2.BufferPos, e3.BufferPos };
+		int vec = b.CreateVectorOfOffsets(offsets);
+
+		var outer = new FlatBufferLite.Attr.Inner(ref b, value: 0);
+		_ = b.AsSpan();
+
+		var v = new FlatBufferLite.Attr.EntryVector(b.Buffer, vec);
+		Assert.Equal(3, v.Length);
+
+		var found = v.LookupByKey(20);
+		Assert.True(found.IsValid);
+		Assert.Equal(20, found.Id);
+		Assert.Equal("two", found.Name.ToString());
+
+		var missing = v.LookupByKey(99);
+		Assert.False(missing.IsValid);
+	}
+
+	[Fact]
+	public void FieldAttribute_Hash_ParsedAndStored()
+	{
+		var source = """
+			table Hashed { tag: string (hash: "fnv1a_32"); }
+			root_type Hashed;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.Equal("fnv1a_32", schema.Tables[0].Fields[0].HashAlgorithm);
+	}
+
+	[Fact]
+	public void FieldAttribute_NestedFlatbuffer_ParsedAndStored()
+	{
+		var source = """
+			table Inner { value: int; }
+			table Outer { blob: [ubyte] (nested_flatbuffer: "Inner"); }
+			root_type Outer;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.Equal("Inner", schema.Tables[1].Fields[0].NestedFlatBufferType);
+	}
+
+	[Fact]
+	public void FieldAttribute_NestedFlatbuffer_AccessorEmitted()
+	{
+		var source = """
+			table Inner { value: int; }
+			table Outer { blob: [ubyte] (nested_flatbuffer: "Inner"); }
+			root_type Outer;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("BlobNested", code);
+		Assert.Contains("Inner.GetRootAs(Blob.AsSpan)", code);
+	}
+
+	[Fact]
+	public void FieldAttribute_NestedFlatbuffer_RoundTrips()
+	{
+		Span<byte> innerBuf = stackalloc byte[128];
+		var ib = new FlatBufferBuilder(innerBuf);
+		new FlatBufferLite.Attr.Inner(ref ib, value: 42);
+		var innerBytes = ib.AsSpan();
+
+		Span<byte> outerBuf = stackalloc byte[512];
+		var ob = new FlatBufferBuilder(outerBuf);
+		int blob = ob.CreateVector<byte>(System.Runtime.InteropServices.MemoryMarshal.Cast<byte, byte>(innerBytes));
+		var outer = new FlatBufferLite.Attr.Outer(ref ob, blob: blob);
+		var outerBytes = ob.AsSpan();
+
+		var o = FlatBufferLite.Attr.Outer.GetRootAs(outerBytes);
+		var nested = o.BlobNested;
+		Assert.True(nested.IsValid);
+		Assert.Equal(42, nested.Value);
+	}
+
+	[Fact]
+	public void FieldAttribute_Flexbuffer_ParsedAndStored()
+	{
+		var source = """
+			table Flex { data: [ubyte] (flexbuffer); }
+			root_type Flex;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.True(schema.Tables[0].Fields[0].IsFlexBuffer);
+	}
+
+	[Fact]
+	public void TypeAttribute_OriginalOrder_ParsedAndStored()
+	{
+		var source = """
+			table Ordered (original_order) { b: int; a: int; }
+			root_type Ordered;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.True(schema.Tables[0].OriginalOrder);
+	}
+
+	[Fact]
+	public void TypeAttribute_ForceAlign_ChangesStructAlignment()
+	{
+		var source = """
+			struct Aligned (force_align: 16) { x: float; y: float; z: float; }
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var s = schema.Structs[0];
+		Assert.Equal(16, s.ForceAlign);
+		Assert.Equal(16, s.Alignment);
+		Assert.Equal(16, s.Size);
+	}
+
+	[Fact]
+	public void FieldAttribute_ForceAlign_ChangesStructFieldAlignment()
+	{
+		var source = """
+			struct Padded { a: byte (force_align: 4); b: int; }
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var s = schema.Structs[0];
+		Assert.Equal(4, s.Fields[0].ForceAlign);
+		Assert.Equal(0, s.Fields[0].Offset);
+		Assert.Equal(4, s.Fields[1].Offset);
+	}
 }

@@ -513,6 +513,8 @@ public sealed class CodeEmitter
 		{
 			string cs = elt.ToCSharpKeyword();
 			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType))
+				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append(' ').Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append(".GetRootAs(").Append(propName).AppendLine(".AsSpan);");
 			return;
 		}
 		if (elt == SchemaBaseType.String)
@@ -563,7 +565,68 @@ public sealed class CodeEmitter
 		_sb.Append("\t\t\treturn new ").Append(t.Name).AppendLine("(_buf, elt + (int)FlatBufferReader.ReadUnaligned<uint>(_buf, elt));");
 		_sb.AppendLine("\t\t}");
 		_sb.AppendLine("\t}");
+
+		FieldDef? keyField = null;
+		foreach (var f in t.Fields)
+		{
+			if (!f.Deprecated && f.IsKey)
+			{
+				keyField = f;
+				break;
+			}
+		}
+
+		if (keyField != null)
+			EmitLookupByKey(t, keyField);
+
 		_sb.AppendLine("}");
+	}
+
+	void EmitLookupByKey(TableDef t, FieldDef keyField)
+	{
+		string propName = ToPascalCase(keyField.Name);
+
+		if (keyField.Type.IsString)
+		{
+			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(t.Name).AppendLine(" LookupByKey(ReadOnlySpan<byte> key)");
+			_sb.AppendLine("\t{");
+			_sb.AppendLine("\t\tint lo = 0, hi = Length - 1;");
+			_sb.AppendLine("\t\twhile (lo <= hi)");
+			_sb.AppendLine("\t\t{");
+			_sb.AppendLine("\t\t\tint mid = (lo + hi) >> 1;");
+			_sb.Append("\t\t\tvar entry = this[mid];");
+			_sb.AppendLine();
+			_sb.Append("\t\t\tint cmp = entry.").Append(propName).AppendLine(".AsBytes.SequenceCompareTo(key);");
+			_sb.AppendLine("\t\t\tif (cmp == 0) return entry;");
+			_sb.AppendLine("\t\t\tif (cmp < 0) lo = mid + 1; else hi = mid - 1;");
+			_sb.AppendLine("\t\t}");
+			_sb.Append("\t\treturn default;");
+			_sb.AppendLine();
+			_sb.AppendLine("\t}");
+			return;
+		}
+
+		if (keyField.Type.Base.IsScalar())
+		{
+			string cs = ScalarCSharpType(keyField.Type, out string defLit);
+			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(t.Name).Append(" LookupByKey(").Append(cs).AppendLine(" key)");
+			_sb.AppendLine("\t{");
+			_sb.AppendLine("\t\tint lo = 0, hi = Length - 1;");
+			_sb.AppendLine("\t\twhile (lo <= hi)");
+			_sb.AppendLine("\t\t{");
+			_sb.AppendLine("\t\t\tint mid = (lo + hi) >> 1;");
+			_sb.Append("\t\t\tvar entry = this[mid];");
+			_sb.AppendLine();
+			_sb.Append("\t\t\tvar k = entry.").Append(propName).AppendLine(";");
+			_sb.AppendLine("\t\t\tif (k == key) return entry;");
+			_sb.AppendLine("\t\t\tif (k < key) lo = mid + 1; else hi = mid - 1;");
+			_sb.AppendLine("\t\t}");
+			_sb.Append("\t\treturn default;");
+			_sb.AppendLine();
+			_sb.AppendLine("\t}");
+		}
 	}
 
 	static string ScalarCSharpType(TypeRef type, out string defaultLiteral)
