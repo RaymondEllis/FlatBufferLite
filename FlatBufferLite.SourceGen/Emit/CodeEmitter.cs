@@ -224,7 +224,7 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic const int InlineAlign = ").Append(t.InlineAlign).AppendLine(";");
 
 		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
-		_sb.Append("\tpublic const int FixedMaxSize = ").Append(maxSize).AppendLine(";");
+		_sb.Append("\tpublic const int TableMaxSize = ").Append(maxSize).AppendLine(";");
 		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
 		EmitGetMaxSize(t);
 
@@ -295,7 +295,7 @@ public sealed class CodeEmitter
 			if (i > 0) _sb.Append(", ");
 			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
 		}
-		_sb.Append(") => FixedMaxSize");
+		_sb.Append(") => TableMaxSize");
 		foreach (var (_, sizeExpr) in refFields)
 			_sb.Append(" + ").Append(sizeExpr);
 		_sb.AppendLine(";");

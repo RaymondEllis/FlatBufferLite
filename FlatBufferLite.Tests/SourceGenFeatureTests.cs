@@ -330,7 +330,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void FixedMaxSize_EmittedAsConst()
+	public void TableMaxSize_EmittedAsConst()
 	{
 		var source = """
 			table Simple { x: int; }
@@ -338,7 +338,7 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public const int FixedMaxSize = ", code);
+		Assert.Contains("public const int TableMaxSize = ", code);
 	}
 
 	[Fact]
@@ -354,14 +354,14 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void FixedMaxSize_IsAtLeastGetSize()
+	public void TableMaxSize_IsAtLeastGetSize()
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
 		var span = b.AsSpan();
 		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
-		Assert.True(FlatBufferLite.Sample.Player.FixedMaxSize >= player.GetSize());
+		Assert.True(FlatBufferLite.Sample.Player.TableMaxSize >= player.GetSize());
 	}
 
 	[Fact]
