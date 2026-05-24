@@ -569,27 +569,19 @@ public sealed class SchemaParser
 				case "hash":
 					Expect(TokenKind.Colon);
 					field.HashAlgorithm = Expect(TokenKind.StringLit).Text;
-					if (!Match(TokenKind.Comma))
-						goto done;
-					continue;
+					break;
 				case "nested_flatbuffer":
 					Expect(TokenKind.Colon);
 					field.NestedFlatBufferType = Expect(TokenKind.StringLit).Text;
-					if (!Match(TokenKind.Comma))
-						goto done;
-					continue;
+					break;
 				case "force_align":
 					Expect(TokenKind.Colon);
 					field.ForceAlign = (int)ParseLongLiteral();
-					if (!Match(TokenKind.Comma))
-						goto done;
-					continue;
+					break;
 				case "id":
 					Expect(TokenKind.Colon);
 					field.Id = (int)ParseLongLiteral();
-					if (!Match(TokenKind.Comma))
-						goto done;
-					continue;
+					break;
 				default:
 					if (Match(TokenKind.Colon))
 						Next();
@@ -598,7 +590,6 @@ public sealed class SchemaParser
 			if (!Match(TokenKind.Comma))
 				break;
 		}
-		done:
 		Expect(TokenKind.RParen);
 	}
 

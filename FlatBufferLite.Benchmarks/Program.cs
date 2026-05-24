@@ -5,7 +5,7 @@ using FlatBufferLite.Bench;
 
 BenchmarkRunner.Run<SizeBenchmarks>();
 
-[MemoryDiagnoser(false)]
+[MemoryDiagnoser]
 public class SizeBenchmarks
 {
 	readonly byte[] _buf;

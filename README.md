@@ -26,8 +26,13 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | Field attribute: `deprecated` | ✅ |
 | Field attribute: `id` (explicit vtable slot) | ✅ |
 | Field attribute: `required` | ✅ (parsed) |
-| Field attribute: `key`, `hash`, `nested_flatbuffer`, `flexbuffer`, `force_align` | ✅ (parsed, ignored) |
-| Type attribute: `original_order`, `force_align` | ✅ (parsed, ignored) |
+| Field attribute: `key` → `LookupByKey` on vector | ✅ |
+| Field attribute: `hash` | ✅ (parsed) |
+| Field attribute: `nested_flatbuffer` → typed `XxxNested` accessor | ✅ |
+| Field attribute: `flexbuffer` | ✅ (parsed) |
+| Field attribute: `force_align` (struct fields) | ✅ |
+| Type attribute: `force_align` (structs) | ✅ |
+| Type attribute: `original_order` (tables) | ✅ (parsed) |
 | Enum attribute: `bit_flags` | ✅ |
 | Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
 | Vector types | ✅ |
