@@ -1,6 +1,6 @@
 namespace FlatBufferLite.SourceGen.IR;
 
-internal enum SchemaBaseType : byte
+public enum SchemaBaseType : byte
 {
 	None = 0,
 	UType,
@@ -21,7 +21,7 @@ internal enum SchemaBaseType : byte
 	Union,
 }
 
-internal static class SchemaBaseTypeExtensions
+public static class SchemaBaseTypeExtensions
 {
 	public static int InlineSize(this SchemaBaseType type) => type switch
 	{

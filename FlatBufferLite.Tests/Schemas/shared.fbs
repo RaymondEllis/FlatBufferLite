@@ -1,0 +1,5 @@
+struct Vector3I {
+	x: int;
+	y: int;
+	z: int;
+}

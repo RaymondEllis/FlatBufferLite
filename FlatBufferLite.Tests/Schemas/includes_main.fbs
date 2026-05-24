@@ -1,0 +1,8 @@
+include "shared.fbs";
+
+table Chunk {
+	pos: Vector3I;
+	data: [ubyte];
+}
+
+root_type Chunk;

@@ -50,13 +50,13 @@ public class GeneratedSchemaTests
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 		var pb = new Player(ref b);
-		pb.Position = new Vec3 { x = 1.5f, y = -2.5f, z = 3.5f };
+		pb.Position = new Vec3 { X = 1.5f, Y = -2.5f, Z = 3.5f };
 
 		var span = b.AsSpan();
 		var player = Player.GetRootAs(span);
-		Assert.Equal(1.5f, player.Position.x);
-		Assert.Equal(-2.5f, player.Position.y);
-		Assert.Equal(3.5f, player.Position.z);
+		Assert.Equal(1.5f, player.Position.X);
+		Assert.Equal(-2.5f, player.Position.Y);
+		Assert.Equal(3.5f, player.Position.Z);
 	}
 
 	[Fact]

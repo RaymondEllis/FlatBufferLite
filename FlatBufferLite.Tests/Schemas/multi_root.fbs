@@ -1,0 +1,17 @@
+namespace FlatBufferLite.MultiRoot;
+
+table RegionData {
+	id: int;
+	name: string;
+}
+
+table WorldIndexData {
+	version: int;
+}
+
+table MetaData {
+	tag: int;
+}
+
+root_type RegionData;
+root_type WorldIndexData;

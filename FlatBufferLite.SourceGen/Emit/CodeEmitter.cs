@@ -5,7 +5,7 @@ using System.Text;
 
 namespace FlatBufferLite.SourceGen.Emit;
 
-internal sealed class CodeEmitter
+public sealed class CodeEmitter
 {
 	readonly Schema _schema;
 	readonly StringBuilder _sb = new();
@@ -26,14 +26,19 @@ internal sealed class CodeEmitter
 		if (!string.IsNullOrEmpty(_schema.Namespace))
 			_sb.Append("namespace ").Append(_schema.Namespace).AppendLine(";");
 
-		foreach (var e in _schema.Enums)
-			EmitEnum(e);
-		foreach (var s in _schema.Structs)
-			EmitStruct(s);
-		foreach (var u in _schema.Unions)
-			EmitUnion(u);
-		foreach (var t in _schema.Tables)
-			EmitTable(t);
+		int enumCount = _schema.LocalEnumCount;
+		int structCount = _schema.LocalStructCount;
+		int unionCount = _schema.LocalUnionCount;
+		int tableCount = _schema.LocalTableCount;
+
+		for (int i = 0; i < enumCount; i++)
+			EmitEnum(_schema.Enums[i]);
+		for (int i = 0; i < structCount; i++)
+			EmitStruct(_schema.Structs[i]);
+		for (int i = 0; i < unionCount; i++)
+			EmitUnion(_schema.Unions[i]);
+		for (int i = 0; i < tableCount; i++)
+			EmitTable(_schema.Tables[i]);
 		return _sb.ToString();
 	}
 
@@ -56,13 +61,13 @@ internal sealed class CodeEmitter
 	{
 		_sb.AppendLine();
 		_sb.Append("[StructLayout(LayoutKind.Explicit, Size = ").Append(s.Size).AppendLine(")]");
-		_sb.Append("public struct ").AppendLine(s.Name);
+		_sb.Append("public partial struct ").AppendLine(s.Name);
 		_sb.AppendLine("{");
 		foreach (var f in s.Fields)
 		{
 			string cs = ResolveTypeName(f.Type);
 			_sb.Append("\t[FieldOffset(").Append(f.Offset).AppendLine(")]");
-			_sb.Append("\tpublic ").Append(cs).Append(' ').Append(f.Name).AppendLine(";");
+			_sb.Append("\tpublic ").Append(cs).Append(' ').Append(ToPascalCase(f.Name)).AppendLine(";");
 		}
 		_sb.AppendLine("}");
 	}
@@ -225,7 +230,7 @@ internal sealed class CodeEmitter
 
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(Span<byte> buffer) => new ").Append(t.Name).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(ReadOnlySpan<byte> buffer) => new ").Append(t.Name).AppendLine("(MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in buffer[0]), buffer.Length), FlatBufferReader.GetRootOffset(buffer));");
-		_sb.AppendLine("\tpublic int Pos => _pos;");
+		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");
 
 		foreach (var f in t.Fields)
@@ -234,6 +239,8 @@ internal sealed class CodeEmitter
 				continue;
 			EmitTableField(f);
 		}
+
+		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
 		_sb.AppendLine("}");
 
@@ -252,7 +259,7 @@ internal sealed class CodeEmitter
 				continue;
 			EmitForceInlineAssign(f);
 		}
-		if (_schema.RootTable == t.Name)
+		if (_schema.RootTypes.Contains(t.Name))
 			_sb.AppendLine("\t\tbuilder.MarkRoot(_pos);");
 		_sb.AppendLine("\t}");
 	}
@@ -321,7 +328,7 @@ internal sealed class CodeEmitter
 				continue;
 			EmitBuildAssign(f);
 		}
-		if (_schema.RootTable == t.Name)
+		if (_schema.RootTypes.Contains(t.Name))
 			_sb.AppendLine("\t\tbuilder.MarkRoot(_pos);");
 		_sb.AppendLine("\t}");
 	}
