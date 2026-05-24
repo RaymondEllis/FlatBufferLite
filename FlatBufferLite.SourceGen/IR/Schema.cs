@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace FlatBufferLite.SourceGen.IR;
 
-internal struct TypeRef
+public struct TypeRef
 {
 	public SchemaBaseType Base;
 	public SchemaBaseType ElementBase;
@@ -14,9 +14,9 @@ internal struct TypeRef
 	public readonly bool IsUnion => Base == SchemaBaseType.Union;
 }
 
-internal interface ISchemaDef { }
+public interface ISchemaDef { }
 
-internal sealed class FieldDef
+public sealed class FieldDef
 {
 	public string Name = "";
 	public TypeRef Type;
@@ -27,7 +27,7 @@ internal sealed class FieldDef
 	public int UnionDataInlineOffset;
 }
 
-internal sealed class TableDef : ISchemaDef
+public sealed class TableDef : ISchemaDef
 {
 	public string Name = "";
 	public List<FieldDef> Fields = new();
@@ -36,7 +36,7 @@ internal sealed class TableDef : ISchemaDef
 	public int SlotCount;
 }
 
-internal sealed class StructFieldDef
+public sealed class StructFieldDef
 {
 	public string Name = "";
 	public TypeRef Type;
@@ -44,7 +44,7 @@ internal sealed class StructFieldDef
 	public int Size;
 }
 
-internal sealed class StructDef : ISchemaDef
+public sealed class StructDef : ISchemaDef
 {
 	public string Name = "";
 	public List<StructFieldDef> Fields = new();
@@ -52,13 +52,13 @@ internal sealed class StructDef : ISchemaDef
 	public int Alignment;
 }
 
-internal sealed class EnumValueDef
+public sealed class EnumValueDef
 {
 	public string Name = "";
 	public long Value;
 }
 
-internal sealed class EnumDef : ISchemaDef
+public sealed class EnumDef : ISchemaDef
 {
 	public string Name = "";
 	public SchemaBaseType Underlying = SchemaBaseType.Int;
@@ -66,20 +66,20 @@ internal sealed class EnumDef : ISchemaDef
 	public bool IsBitFlags;
 }
 
-internal sealed class UnionMember
+public sealed class UnionMember
 {
 	public string Name = "";
 	public string TypeName = "";
 	public byte Tag;
 }
 
-internal sealed class UnionDef : ISchemaDef
+public sealed class UnionDef : ISchemaDef
 {
 	public string Name = "";
 	public List<UnionMember> Members = new();
 }
 
-internal sealed class Schema
+public sealed class Schema
 {
 	public List<string> RootTypes = new();
 	public string? RootTable { get => RootTypes.Count > 0 ? RootTypes[0] : null; set { if (value != null && !RootTypes.Contains(value)) RootTypes.Add(value); } }

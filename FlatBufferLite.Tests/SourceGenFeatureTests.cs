@@ -222,4 +222,37 @@ public class SourceGenFeatureTests
 		Assert.Contains("public float PosY;", code);
 		Assert.Contains("public float ScaleFactor;", code);
 	}
+
+	[Fact]
+	public void RpcService_ParsedWithoutError()
+	{
+		var source = """
+			namespace MyGame;
+			table Monster { hp: int; }
+			table MonsterRequest { id: int; }
+			table MonsterResponse { name: string; }
+			rpc_service MonsterStorage {
+			  Store(Monster): MonsterResponse;
+			  Retrieve(MonsterRequest): Monster;
+			}
+			root_type Monster;
+			""";
+		var parser = new SchemaParser(source);
+		var schema = parser.Parse();
+		Assert.Equal(3, schema.Tables.Count);
+		Assert.Equal("Monster", schema.RootTable);
+	}
+
+	[Fact]
+	public void NativeInclude_ParsedWithoutError()
+	{
+		var source = """
+			native_include "monster_extra.h";
+			table Monster { hp: int; }
+			root_type Monster;
+			""";
+		var parser = new SchemaParser(source);
+		var schema = parser.Parse();
+		Assert.Single(schema.Tables);
+	}
 }

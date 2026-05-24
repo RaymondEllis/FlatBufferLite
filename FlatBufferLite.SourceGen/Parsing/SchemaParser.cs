@@ -6,7 +6,7 @@ using System.Text;
 
 namespace FlatBufferLite.SourceGen.Parsing;
 
-internal enum TokenKind
+public enum TokenKind
 {
 	Ident, IntLit, FloatLit, StringLit,
 	LBrace, RBrace, LParen, RParen, LBracket, RBracket,
@@ -14,7 +14,7 @@ internal enum TokenKind
 	EOF,
 }
 
-internal struct Token
+public struct Token
 {
 	public TokenKind Kind;
 	public string Text;
@@ -22,7 +22,7 @@ internal struct Token
 	public int Column;
 }
 
-internal sealed class SchemaParseException : Exception
+public sealed class SchemaParseException : Exception
 {
 	public int Line;
 	public int Column;
@@ -33,7 +33,7 @@ internal sealed class SchemaParseException : Exception
 	}
 }
 
-internal sealed class Lexer
+public sealed class Lexer
 {
 	readonly string _src;
 	int _pos;
@@ -216,7 +216,7 @@ internal sealed class Lexer
 	}
 }
 
-internal sealed class SchemaParser
+public sealed class SchemaParser
 {
 	readonly List<Token> _tokens;
 	int _pos;
@@ -268,7 +268,7 @@ internal sealed class SchemaParser
 		return schema;
 	}
 
-	internal Schema ParseRaw()
+	public Schema ParseRaw()
 	{
 		var schema = new Schema();
 		while (Peek().Kind != TokenKind.EOF)
@@ -287,6 +287,8 @@ internal sealed class SchemaParser
 				case "file_identifier": _pos++; schema.FileIdentifier = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "include": _pos++; schema.Includes.Add(Expect(TokenKind.StringLit).Text); Expect(TokenKind.Semicolon); break;
+				case "native_include": _pos++; Expect(TokenKind.StringLit); Expect(TokenKind.Semicolon); break;
+				case "rpc_service": ParseRpcService(); break;
 				case "attribute":
 					_pos++; if (Peek().Kind == TokenKind.StringLit)
 						_pos++;
@@ -450,6 +452,25 @@ internal sealed class SchemaParser
 		}
 		Expect(TokenKind.RBrace);
 		schema.Unions.Add(u);
+	}
+
+	void ParseRpcService()
+	{
+		_pos++;
+		ExpectIdent(); // service name
+		Expect(TokenKind.LBrace);
+		while (Peek().Kind != TokenKind.RBrace)
+		{
+			ExpectIdent(); // method name
+			Expect(TokenKind.LParen);
+			ParseQualifiedName(); // request type
+			Expect(TokenKind.RParen);
+			Expect(TokenKind.Colon);
+			ParseQualifiedName(); // response type
+			SkipMetadata();
+			Expect(TokenKind.Semicolon);
+		}
+		Expect(TokenKind.RBrace);
 	}
 
 	FieldDef ParseFieldDef()

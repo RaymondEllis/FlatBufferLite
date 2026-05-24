@@ -5,7 +5,7 @@ using System.Text;
 
 namespace FlatBufferLite.SourceGen.Emit;
 
-internal sealed class CodeEmitter
+public sealed class CodeEmitter
 {
 	readonly Schema _schema;
 	readonly StringBuilder _sb = new();
