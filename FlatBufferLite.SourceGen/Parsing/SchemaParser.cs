@@ -288,7 +288,7 @@ public sealed class SchemaParser
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "include": _pos++; schema.Includes.Add(Expect(TokenKind.StringLit).Text); Expect(TokenKind.Semicolon); break;
 				case "native_include": _pos++; Expect(TokenKind.StringLit); Expect(TokenKind.Semicolon); break;
-				case "rpc_service": ParseRpcService(); break;
+				case "rpc_service": ParseRpcService(schema); break;
 				case "attribute":
 					_pos++; if (Peek().Kind == TokenKind.StringLit)
 						_pos++;
@@ -464,10 +464,11 @@ public sealed class SchemaParser
 		schema.Unions.Add(u);
 	}
 
-	void ParseRpcService()
+	void ParseRpcService(Schema schema)
 	{
 		_pos++;
-		ExpectIdent(); // service name
+		var name = ExpectIdent().Text;
+		schema.Warnings.Add($"rpc_service '{name}' is not supported and will be ignored.");
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 		{

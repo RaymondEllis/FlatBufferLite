@@ -2,32 +2,36 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using FlatBufferLite;
 using FlatBufferLite.Bench;
+using System.Runtime.InteropServices;
 
-BenchmarkRunner.Run<SizeBenchmarks>();
+BenchmarkRunner.Run<WriteBenchmarks>();
 
 [MemoryDiagnoser]
-public class SizeBenchmarks
+public class WriteBenchmarks
 {
-	readonly byte[] _buf;
-	readonly int _pos;
+	readonly byte[] _buf = new byte[Monster.MaxSize + 1024];
+	readonly byte[] _inventory = new byte[] { 0, 1, 2, 3, 4 };
+	readonly Vec3[] _path = new Vec3[] { new Vec3 { X = 1, Y = 0, Z = 0 }, new Vec3 { X = 2, Y = 0, Z = 0 } };
 
-	public SizeBenchmarks()
+	[Benchmark]
+	public int WriteMonster()
 	{
-		_buf = new byte[Monster.GetMaxSize()];
 		var b = new FlatBufferBuilder(_buf);
-		int name = b.CreateString("Goblin"u8);
-		var m = new Monster(ref b, hp: 100, mana: 150, name: name, x: 1.0f, y: 2.0f, z: 3.0f);
-		_ = b.AsSpan();
-		_pos = m.BufferPos;
-	}
 
-	[Benchmark]
-	public int GetMaxSize() => Monster.GetMaxSize();
+		int sword = new Weapon(ref b, damage: 30, equipType: EquipType.Sword).BufferPos;
+		int bow   = new Weapon(ref b, damage: 15, equipType: EquipType.Bow).BufferPos;
 
-	[Benchmark]
-	public int GetSize()
-	{
-		var m = new Monster(_buf, _pos);
-		return m.GetSize();
+		int weapons  = b.CreateVectorOfOffsets(new[] { sword, bow });
+		int inventory = b.CreateVector<byte>((ReadOnlySpan<byte>)_inventory);
+		int pathVec  = b.CreateVector<Vec3>((ReadOnlySpan<Vec3>)_path);
+		int name     = b.CreateString("Goblin"u8);
+
+		new Monster(ref b,
+			pos: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f },
+			hp: 100, mana: 150, name: name,
+			color: new Color { R = 255, G = 0, B = 0, A = 255 },
+			inventory: inventory, weapons: weapons, path: pathVec);
+
+		return b.AsSpan().Length;
 	}
 }

@@ -101,6 +101,7 @@ public sealed class Schema
 	public List<StructDef> Structs = new();
 	public List<EnumDef> Enums = new();
 	public List<UnionDef> Unions = new();
+	public List<string> Warnings = new();
 	public int LocalTableCount;
 	public int LocalStructCount;
 	public int LocalEnumCount;

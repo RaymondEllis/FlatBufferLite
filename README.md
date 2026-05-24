@@ -18,21 +18,21 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | `enum` | ✅ |
 | `union` | ✅ |
 | `root_type` (multiple) | ✅ |
-| `file_identifier` | ✅ |
-| `file_extension` | ✅ |
+| `file_identifier` | ✅ (parsed, no codegen effect) |
+| `file_extension` | ✅ (parsed, no codegen effect) |
 | `include` / `native_include` | ✅ |
-| `rpc_service` (parsed, no code gen) | ✅ |
-| `attribute` declarations | ✅ |
+| `rpc_service` | ❌ (emits compiler warning FBL003, no code gen) |
+| `attribute` declarations | ✅ (parsed, declarative only) |
 | Field attribute: `deprecated` | ✅ |
 | Field attribute: `id` (explicit vtable slot) | ✅ |
-| Field attribute: `required` | ✅ (parsed) |
+| Field attribute: `required` | ✅ (parsed, no runtime enforcement) |
 | Field attribute: `key` → `LookupByKey` on vector | ✅ |
-| Field attribute: `hash` | ✅ (parsed) |
+| Field attribute: `hash` | ✅ (parsed, no codegen effect) |
 | Field attribute: `nested_flatbuffer` → typed `XxxNested` accessor | ✅ |
-| Field attribute: `flexbuffer` | ✅ (parsed) |
+| Field attribute: `flexbuffer` | ✅ (parsed, no codegen effect) |
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
-| Type attribute: `original_order` (tables) | ✅ (parsed) |
+| Type attribute: `original_order` (tables) | ✅ (parsed, no codegen effect) |
 | Enum attribute: `bit_flags` | ✅ |
 | Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
 | Vector types | ✅ |
@@ -67,12 +67,12 @@ pb.Hp = 250;
 ReadOnlySpan<byte> bytes = b.AsSpan();
 ```
 
-### Pre-allocating buffers with `GetMaxSize`
+### Pre-allocating buffers with `MaxSize`
 
-`GetMaxSize()` is a source-generated static method that returns a compile-time constant — the maximum number of bytes needed to write exactly one instance of the table as a root (vtable + table data + root offset + worst-case alignment padding, excluding variable-length fields such as strings and vectors).
+`MaxSize` is a source-generated `const int` — the maximum number of bytes needed to write exactly one instance of the table as a root (vtable + table data + root offset + worst-case alignment padding, excluding variable-length fields such as strings and vectors).
 
 ```csharp
-Span<byte> buf = stackalloc byte[Player.GetMaxSize()];
+Span<byte> buf = stackalloc byte[Player.MaxSize];
 var b = new FlatBufferBuilder(buf);
 new Player(ref b, id: 1, hp: 100);
 ReadOnlySpan<byte> bytes = b.AsSpan();

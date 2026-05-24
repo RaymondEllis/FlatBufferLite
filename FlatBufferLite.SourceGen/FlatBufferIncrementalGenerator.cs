@@ -49,6 +49,10 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 					}
 
 					var schema = SchemaParser.ParseWithIncludes(text, Resolver, dir);
+					foreach (var w in schema.Warnings)
+						spc.ReportDiagnostic(Diagnostic.Create(
+							new DiagnosticDescriptor("FBL003", "FlatBuffer unsupported feature", w, "FlatBufferLite", DiagnosticSeverity.Warning, isEnabledByDefault: true),
+							Location.None));
 					var code = new CodeEmitter(schema).Emit();
 					var hintBase = Path.GetFileNameWithoutExtension(at.Path);
 					var hint = $"{SanitizeHint(hintBase)}.g.cs";

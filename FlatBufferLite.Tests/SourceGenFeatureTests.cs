@@ -330,7 +330,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void GetMaxSize_EmittedAsStaticMethod()
+	public void MaxSize_EmittedAsConst()
 	{
 		var source = """
 			table Simple { x: int; }
@@ -338,7 +338,7 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public static int GetMaxSize()", code);
+		Assert.Contains("public const int MaxSize = ", code);
 	}
 
 	[Fact]
@@ -354,14 +354,14 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void GetMaxSize_IsAtLeastGetSize()
+	public void MaxSize_IsAtLeastGetSize()
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
 		var span = b.AsSpan();
 		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
-		Assert.True(FlatBufferLite.Sample.Player.GetMaxSize() >= player.GetSize());
+		Assert.True(FlatBufferLite.Sample.Player.MaxSize >= player.GetSize());
 	}
 
 	[Fact]

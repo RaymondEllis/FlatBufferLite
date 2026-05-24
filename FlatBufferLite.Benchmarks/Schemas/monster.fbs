@@ -1,12 +1,36 @@
 namespace FlatBufferLite.Bench;
 
-table Monster {
-	hp: short;
-	mana: short;
-	name: string;
+struct Vec3 {
 	x: float;
 	y: float;
 	z: float;
+}
+
+struct Color {
+	r: ubyte;
+	g: ubyte;
+	b: ubyte;
+	a: ubyte;
+}
+
+enum EquipType : byte { None = 0, Sword, Shield, Bow }
+
+table Weapon {
+	name: string;
+	damage: short;
+	equip_type: EquipType;
+}
+
+table Monster {
+	pos: Vec3;
+	hp: short;
+	mana: short;
+	name: string;
+	color: Color;
+	inventory: [ubyte];
+	weapons: [Weapon];
+	equipped: Weapon;
+	path: [Vec3];
 }
 
 root_type Monster;
