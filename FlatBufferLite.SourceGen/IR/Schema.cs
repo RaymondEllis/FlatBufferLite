@@ -82,7 +82,7 @@ public sealed class UnionDef : ISchemaDef
 public sealed class Schema
 {
 	public List<string> RootTypes = new();
-	public string? RootTable { get => RootTypes.Count > 0 ? RootTypes[0] : null; set { if (value != null && !RootTypes.Contains(value)) RootTypes.Add(value); } }
+	public string? RootTable => RootTypes.Count > 0 ? RootTypes[0] : null;
 	public string? FileIdentifier;
 	public string? FileExtension;
 	public string? Namespace;
@@ -97,6 +97,12 @@ public sealed class Schema
 	public int LocalUnionCount;
 
 	public Dictionary<string, ISchemaDef> ByName = new();
+
+	public void AddRootType(string name)
+	{
+		if (!RootTypes.Contains(name))
+			RootTypes.Add(name);
+	}
 
 	public void Index()
 	{

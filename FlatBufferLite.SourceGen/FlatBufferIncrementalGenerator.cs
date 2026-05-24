@@ -35,20 +35,20 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 				{
 					var text = fileMap[at.Path].Text;
 					var dir = Path.GetDirectoryName(at.Path) ?? "";
-					string? Resolver(string includePath)
+					(string, string)? Resolver(string includePath, string includingDir)
 					{
-						var relative = Path.Combine(dir, includePath);
+						var relative = Path.Combine(includingDir, includePath);
 						if (fileMap.TryGetValue(relative, out var found))
-							return found.Text;
+							return (found.Path, found.Text);
 						if (fileMap.TryGetValue(includePath, out found))
-							return found.Text;
+							return (found.Path, found.Text);
 						var normalized = Path.GetFullPath(relative);
 						if (fileMap.TryGetValue(normalized, out found))
-							return found.Text;
+							return (found.Path, found.Text);
 						return null;
 					}
 
-					var schema = SchemaParser.ParseWithIncludes(text, Resolver);
+					var schema = SchemaParser.ParseWithIncludes(text, Resolver, dir);
 					var code = new CodeEmitter(schema).Emit();
 					var hintBase = Path.GetFileNameWithoutExtension(at.Path);
 					var hint = $"{SanitizeHint(hintBase)}.g.cs";

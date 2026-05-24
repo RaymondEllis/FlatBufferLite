@@ -35,12 +35,13 @@ public class MultiRootTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		var region = new RegionData(ref b);
-		region.Id = 99;
+		var meta = new MetaData(ref b);
+		meta.Tag = 99;
+		meta.MarkAsRoot(ref b);
 
 		var span = b.AsSpan();
-		var read = RegionData.GetRootAs(span);
-		Assert.Equal(99, read.Id);
+		var read = MetaData.GetRootAs(span);
+		Assert.Equal(99, read.Tag);
 	}
 
 	[Fact]

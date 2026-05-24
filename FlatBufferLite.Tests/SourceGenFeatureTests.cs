@@ -116,6 +116,41 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void IncludeDirective_ResolvesRelativeToIncludingFile()
+	{
+		var libSource = """
+			struct Color { r: ubyte; g: ubyte; b: ubyte; }
+			""";
+		var midSource = """
+			include "color.fbs";
+			struct Material { diffuse: Color; }
+			""";
+		var topSource = """
+			include "sub/mid.fbs";
+			table Mesh { mat: Material; }
+			root_type Mesh;
+			""";
+
+		var files = new Dictionary<string, string>
+		{
+			["/project/sub/mid.fbs"] = midSource,
+			["/project/sub/color.fbs"] = libSource,
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(topSource, (includePath, includingDir) =>
+		{
+			var resolved = System.IO.Path.Combine(includingDir, includePath);
+			if (files.TryGetValue(resolved, out var content))
+				return (resolved, content);
+			return null;
+		}, "/project");
+
+		Assert.Contains("Color", schema.ByName.Keys);
+		Assert.Contains("Material", schema.ByName.Keys);
+		Assert.Contains("Mesh", schema.ByName.Keys);
+	}
+
+	[Fact]
 	public void PartialModifier_StructIsEmittedAsPartial()
 	{
 		var source = """

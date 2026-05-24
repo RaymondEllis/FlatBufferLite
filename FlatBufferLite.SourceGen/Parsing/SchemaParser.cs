@@ -283,7 +283,7 @@ public sealed class SchemaParser
 				case "struct": ParseStruct(schema); break;
 				case "enum": ParseEnum(schema); break;
 				case "union": ParseUnion(schema); break;
-				case "root_type": _pos++; schema.RootTable = ParseQualifiedName(); Expect(TokenKind.Semicolon); break;
+				case "root_type": _pos++; schema.AddRootType(ParseQualifiedName()); Expect(TokenKind.Semicolon); break;
 				case "file_identifier": _pos++; schema.FileIdentifier = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "include": _pos++; schema.Includes.Add(Expect(TokenKind.StringLit).Text); Expect(TokenKind.Semicolon); break;
@@ -303,22 +303,32 @@ public sealed class SchemaParser
 
 	public static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver)
 	{
-		return ParseWithIncludes(source, fileResolver, new HashSet<string>(StringComparer.Ordinal));
+		return ParseWithIncludes(source, (path, _) =>
+		{
+			var content = fileResolver(path);
+			return content != null ? (path, content) : null;
+		}, "", new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 	}
 
-	static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver, HashSet<string> visited)
+	public static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir)
+	{
+		return ParseWithIncludes(source, fileResolver, currentDir, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+	}
+
+	static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir, HashSet<string> visited)
 	{
 		var parser = new SchemaParser(source);
 		var schema = parser.ParseRaw();
 
 		foreach (var include in schema.Includes)
 		{
-			if (!visited.Add(include))
+			var resolved = fileResolver(include, currentDir);
+			if (resolved == null)
 				continue;
-			var content = fileResolver(include);
-			if (content == null)
+			if (!visited.Add(resolved.Value.ResolvedPath))
 				continue;
-			var included = ParseWithIncludes(content, fileResolver, visited);
+			var includeDir = System.IO.Path.GetDirectoryName(resolved.Value.ResolvedPath) ?? "";
+			var included = ParseWithIncludes(resolved.Value.Content, fileResolver, includeDir, visited);
 			schema.MergeFrom(included);
 		}
 
