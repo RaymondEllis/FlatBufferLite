@@ -69,11 +69,11 @@ ReadOnlySpan<byte> bytes = b.AsSpan();
 
 ### Pre-allocating buffers with `GetMaxSize`
 
-`MaxSize` is a source-generated `const int` for the fixed-size portion of the table (vtable + inline fields + root offset + worst-case alignment). For tables with strings or vectors, use `GetMaxSize(...)` which accepts the byte counts and element counts of those fields:
+`FixedMaxSize` is a source-generated `const int` for the fixed-size portion of the table (vtable + inline fields + root offset + worst-case alignment). For tables with strings or vectors, use `GetMaxSize(...)` which accepts the byte counts and element counts of those fields:
 
 ```csharp
-// Only scalar/struct fields — MaxSize is sufficient:
-Span<byte> buf = stackalloc byte[Player.MaxSize];
+// Only scalar/struct fields — FixedMaxSize is sufficient:
+Span<byte> buf = stackalloc byte[Player.FixedMaxSize];
 var b = new FlatBufferBuilder(buf);
 new Player(ref b, id: 1, hp: 100);
 

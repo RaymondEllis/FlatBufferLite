@@ -330,7 +330,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void MaxSize_EmittedAsConst()
+	public void FixedMaxSize_EmittedAsConst()
 	{
 		var source = """
 			table Simple { x: int; }
@@ -338,7 +338,7 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public const int MaxSize = ", code);
+		Assert.Contains("public const int FixedMaxSize = ", code);
 	}
 
 	[Fact]
@@ -354,14 +354,14 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void MaxSize_IsAtLeastGetSize()
+	public void FixedMaxSize_IsAtLeastGetSize()
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
 		var span = b.AsSpan();
 		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
-		Assert.True(FlatBufferLite.Sample.Player.MaxSize >= player.GetSize());
+		Assert.True(FlatBufferLite.Sample.Player.FixedMaxSize >= player.GetSize());
 	}
 
 	[Fact]
@@ -394,7 +394,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void FieldAttribute_Required_ThrowsIfNotSet()
+	public void FieldAttribute_Required_AlwaysWritten()
 	{
 		var source = """
 			table Doc { content: string (required); }
@@ -402,8 +402,8 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("throw new InvalidOperationException", code);
-		Assert.Contains("content", code);
+		Assert.DoesNotContain("if (content != 0)", code);
+		Assert.Contains("WriteOffset", code);
 	}
 
 	[Fact]

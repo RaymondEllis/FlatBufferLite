@@ -224,7 +224,7 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic const int InlineAlign = ").Append(t.InlineAlign).AppendLine(";");
 
 		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
-		_sb.Append("\tpublic const int MaxSize = ").Append(maxSize).AppendLine(";");
+		_sb.Append("\tpublic const int FixedMaxSize = ").Append(maxSize).AppendLine(";");
 		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
 		EmitGetMaxSize(t);
 
@@ -295,7 +295,7 @@ public sealed class CodeEmitter
 			if (i > 0) _sb.Append(", ");
 			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
 		}
-		_sb.Append(") => MaxSize");
+		_sb.Append(") => FixedMaxSize");
 		foreach (var (_, sizeExpr) in refFields)
 			_sb.Append(" + ").Append(sizeExpr);
 		_sb.AppendLine(";");
@@ -450,14 +450,9 @@ public sealed class CodeEmitter
 		if (f.Type.IsString || f.Type.IsVector)
 		{
 			if (f.Required)
-			{
-				_sb.Append("\t\tif (").Append(pname).Append(" == 0) throw new InvalidOperationException(\"Required field '").Append(f.Name).AppendLine("' must be set.\");");
 				_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
-			}
 			else
-			{
 				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
-			}
 			return;
 		}
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
@@ -465,14 +460,9 @@ public sealed class CodeEmitter
 			if (def is TableDef)
 			{
 				if (f.Required)
-				{
-					_sb.Append("\t\tif (").Append(pname).Append(" == 0) throw new InvalidOperationException(\"Required field '").Append(f.Name).AppendLine("' must be set.\");");
 					_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
-				}
 				else
-				{
 					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
-				}
 				return;
 			}
 			if (def is StructDef)

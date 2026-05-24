@@ -18,6 +18,12 @@ public class WriteBenchmarks
 	readonly Vec3[] _path = new Vec3[] { new Vec3 { X = 1, Y = 0, Z = 0 }, new Vec3 { X = 2, Y = 0, Z = 0 } };
 
 	[Benchmark]
+	public int SizeMonster() =>
+		Monster.GetMaxSize(nameByteCount: 6, inventoryCount: 5, weaponsCount: 2, pathCount: 2)
+		+ Weapon.GetMaxSize(nameByteCount: 5)
+		+ Weapon.GetMaxSize(nameByteCount: 3);
+
+	[Benchmark]
 	public int WriteMonster()
 	{
 		var b = new FlatBufferBuilder(_buf);
