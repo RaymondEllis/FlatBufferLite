@@ -9,6 +9,7 @@ BenchmarkRunner.Run<WriteBenchmarks>();
 [MemoryDiagnoser]
 public class WriteBenchmarks
 {
+	// MaxSize covers only fixed-size fields; strings and vectors need additional space.
 	readonly byte[] _buf = new byte[Monster.MaxSize + 1024];
 	readonly byte[] _inventory = new byte[] { 0, 1, 2, 3, 4 };
 	readonly Vec3[] _path = new Vec3[] { new Vec3 { X = 1, Y = 0, Z = 0 }, new Vec3 { X = 2, Y = 0, Z = 0 } };
@@ -18,8 +19,10 @@ public class WriteBenchmarks
 	{
 		var b = new FlatBufferBuilder(_buf);
 
-		int sword = new Weapon(ref b, damage: 30, equipType: EquipType.Sword).BufferPos;
-		int bow   = new Weapon(ref b, damage: 15, equipType: EquipType.Bow).BufferPos;
+		int swordName = b.CreateString("Sword"u8);
+		int bowName   = b.CreateString("Bow"u8);
+		int sword = new Weapon(ref b, name: swordName, damage: 30, equipType: EquipType.Sword).BufferPos;
+		int bow   = new Weapon(ref b, name: bowName, damage: 15, equipType: EquipType.Bow).BufferPos;
 
 		int weapons  = b.CreateVectorOfOffsets(new[] { sword, bow });
 		int inventory = b.CreateVector<byte>((ReadOnlySpan<byte>)_inventory);
