@@ -117,9 +117,10 @@ The `FlatBufferLite.Benchmarks` project demonstrates the cost difference:
 ```
 | Method     | Mean      | Allocated |
 |----------- |----------:|----------:|
-| GetMaxSize | 0.0000 ns |       0 B |
-| GetSize    | ~1.2 ns   |       0 B |
+| GetMaxSize | 0.000 ns  |       0 B |
+| GetSize    | 1.234 ns  |       0 B |
 ```
+*(example output — actual numbers depend on hardware and runtime)*
 
 `GetMaxSize()` is folded to a constant by the JIT with no memory access. `GetSize()` requires three reads from the buffer (soffset, vtableSize, tableDataSize).
 

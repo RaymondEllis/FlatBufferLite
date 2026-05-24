@@ -225,7 +225,7 @@ public sealed class CodeEmitter
 
 		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
 		_sb.Append("\tpublic static int GetMaxSize() => ").Append(maxSize).AppendLine(";");
-		_sb.AppendLine("\tpublic int GetSize() => FlatBufferReader.ReadUnaligned<ushort>(_buf, _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos)) + FlatBufferReader.ReadUnaligned<ushort>(_buf, _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos) + 2);");
+		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
 
 		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
 

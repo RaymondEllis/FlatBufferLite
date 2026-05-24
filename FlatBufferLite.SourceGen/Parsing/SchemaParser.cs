@@ -620,7 +620,13 @@ public sealed class SchemaParser
 		{
 			bool hasExplicitIds = false;
 			foreach (var f in table.Fields)
-				if (f.Id >= 0) { hasExplicitIds = true; break; }
+			{
+				if (f.Id >= 0)
+				{
+					hasExplicitIds = true;
+					break;
+				}
+			}
 
 			if (hasExplicitIds)
 			{
