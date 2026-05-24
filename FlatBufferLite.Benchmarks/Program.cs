@@ -2,15 +2,18 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using FlatBufferLite;
 using FlatBufferLite.Bench;
-using System.Runtime.InteropServices;
 
 BenchmarkRunner.Run<WriteBenchmarks>();
 
 [MemoryDiagnoser]
 public class WriteBenchmarks
 {
-	// MaxSize covers only fixed-size fields; strings and vectors need additional space.
-	readonly byte[] _buf = new byte[Monster.MaxSize + 1024];
+	static readonly int _bufSize =
+		Monster.GetMaxSize(nameByteCount: 6, inventoryCount: 5, weaponsCount: 2, pathCount: 2)
+		+ Weapon.GetMaxSize(nameByteCount: 5)
+		+ Weapon.GetMaxSize(nameByteCount: 3);
+
+	readonly byte[] _buf = new byte[WriteBenchmarks._bufSize];
 	readonly byte[] _inventory = new byte[] { 0, 1, 2, 3, 4 };
 	readonly Vec3[] _path = new Vec3[] { new Vec3 { X = 1, Y = 0, Z = 0 }, new Vec3 { X = 2, Y = 0, Z = 0 } };
 

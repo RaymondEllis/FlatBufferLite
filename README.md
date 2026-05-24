@@ -18,21 +18,21 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | `enum` | ✅ |
 | `union` | ✅ |
 | `root_type` (multiple) | ✅ |
-| `file_identifier` | ✅ (parsed, no codegen effect) |
-| `file_extension` | ✅ (parsed, no codegen effect) |
+| `file_identifier` | ⚠️ (parsed; use `builder.MarkRoot(pos, "ABCD"u8)` manually) |
+| `file_extension` | ❌ (parsed, no effect) |
 | `include` / `native_include` | ✅ |
 | `rpc_service` | ❌ (emits compiler warning FBL003, no code gen) |
-| `attribute` declarations | ✅ (parsed, declarative only) |
+| `attribute` declarations | ✅ (parsed, allows unknown attributes) |
 | Field attribute: `deprecated` | ✅ |
 | Field attribute: `id` (explicit vtable slot) | ✅ |
-| Field attribute: `required` | ✅ (parsed, no runtime enforcement) |
+| Field attribute: `required` | ✅ (write-time exception if required reference field is null) |
 | Field attribute: `key` → `LookupByKey` on vector | ✅ |
-| Field attribute: `hash` | ✅ (parsed, no codegen effect) |
+| Field attribute: `hash` | ❌ (parsed only; hashing not applied) |
 | Field attribute: `nested_flatbuffer` → typed `XxxNested` accessor | ✅ |
-| Field attribute: `flexbuffer` | ✅ (parsed, no codegen effect) |
+| Field attribute: `flexbuffer` | ❌ (parsed only; FlexBuffers not supported) |
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
-| Type attribute: `original_order` (tables) | ✅ (parsed, no codegen effect) |
+| Type attribute: `original_order` (tables) | ❌ (parsed only; table fields are always in declaration order) |
 | Enum attribute: `bit_flags` | ✅ |
 | Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
 | Vector types | ✅ |
@@ -67,15 +67,32 @@ pb.Hp = 250;
 ReadOnlySpan<byte> bytes = b.AsSpan();
 ```
 
-### Pre-allocating buffers with `MaxSize`
+### Pre-allocating buffers with `GetMaxSize`
 
-`MaxSize` is a source-generated `const int` — the maximum number of bytes needed to write exactly one instance of the table as a root (vtable + table data + root offset + worst-case alignment padding, excluding variable-length fields such as strings and vectors).
+`MaxSize` is a source-generated `const int` for the fixed-size portion of the table (vtable + inline fields + root offset + worst-case alignment). For tables with strings or vectors, use `GetMaxSize(...)` which accepts the byte counts and element counts of those fields:
 
 ```csharp
+// Only scalar/struct fields — MaxSize is sufficient:
 Span<byte> buf = stackalloc byte[Player.MaxSize];
 var b = new FlatBufferBuilder(buf);
 new Player(ref b, id: 1, hp: 100);
-ReadOnlySpan<byte> bytes = b.AsSpan();
+
+// With strings and vectors — use GetMaxSize:
+int bufSize = Player.GetMaxSize(nameByteCount: 5, inventoryCount: 3);
+var buf2 = new byte[bufSize];
+var b2 = new FlatBufferBuilder(buf2);
+int name = b2.CreateString("Alice"u8);
+int inv  = b2.CreateVector<int>(new[] { 10, 20, 30 });
+new Player(ref b2, id: 42, name: name, hp: 250, inventory: inv);
+ReadOnlySpan<byte> bytes = b2.AsSpan();
+```
+
+When a table has nested tables (e.g. `weapons: [Weapon]`), add their `GetMaxSize(...)` values separately:
+
+```csharp
+int bufSize = Monster.GetMaxSize(nameByteCount: 6, weaponsCount: 2)
+            + Weapon.GetMaxSize(nameByteCount: 5)
+            + Weapon.GetMaxSize(nameByteCount: 3);
 ```
 
 ---

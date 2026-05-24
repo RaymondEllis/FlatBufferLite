@@ -1,0 +1,8 @@
+namespace FlatBufferLite.Req;
+
+table Doc {
+	title: string (required);
+	body: string;
+}
+
+root_type Doc;

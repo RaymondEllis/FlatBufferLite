@@ -365,6 +365,59 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void GetMaxSize_CoversFull_Buffer_WithStringsAndVectors()
+	{
+		const int nameBytes = 5;
+		const int invCount = 3;
+		int needed = FlatBufferLite.Sample.Player.GetMaxSize(nameByteCount: nameBytes, inventoryCount: invCount);
+		var buf = new byte[needed];
+		var b = new FlatBufferBuilder(buf);
+		int name = b.CreateString("Alice"u8);
+		int inv  = b.CreateVector<int>(new[] { 10, 20, 30 });
+		new FlatBufferLite.Sample.Player(ref b, id: 42, name: name, hp: 250, inventory: inv);
+		var bytes = b.AsSpan();
+		Assert.True(needed >= bytes.Length);
+	}
+
+	[Fact]
+	public void GetMaxSize_EmittedAsStaticMethod()
+	{
+		var source = """
+			table WithRefs { name: string; tags: [int]; }
+			root_type WithRefs;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public static int GetMaxSize(", code);
+		Assert.Contains("nameByteCount", code);
+		Assert.Contains("tagsCount", code);
+	}
+
+	[Fact]
+	public void FieldAttribute_Required_ThrowsIfNotSet()
+	{
+		var source = """
+			table Doc { content: string (required); }
+			root_type Doc;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("throw new InvalidOperationException", code);
+		Assert.Contains("content", code);
+	}
+
+	[Fact]
+	public void FieldAttribute_Required_RuntimeEnforced()
+	{
+		var buf = new byte[256];
+		var b = new FlatBufferBuilder(buf);
+		bool threw = false;
+		try { new FlatBufferLite.Req.Doc(ref b, title: 0); }
+		catch (InvalidOperationException) { threw = true; }
+		Assert.True(threw, "Expected InvalidOperationException for required field with offset 0.");
+	}
+
+	[Fact]
 	public void FieldAttribute_Key_ParsedAndStored()
 	{
 		var source = """

@@ -226,6 +226,7 @@ public sealed class CodeEmitter
 		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
 		_sb.Append("\tpublic const int MaxSize = ").Append(maxSize).AppendLine(";");
 		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
+		EmitGetMaxSize(t);
 
 		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
 
@@ -249,6 +250,55 @@ public sealed class CodeEmitter
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
+	}
+
+	void EmitGetMaxSize(TableDef t)
+	{
+		var refFields = new List<(string paramName, string sizeExpr)>();
+		foreach (var f in t.Fields)
+		{
+			if (f.Deprecated) continue;
+			string pname = ToCamelCase(f.Name);
+			if (f.Type.IsString)
+			{
+				refFields.Add((pname + "ByteCount", "FlatBufferBuilder.StringMaxSize(" + pname + "ByteCount)"));
+			}
+			else if (f.Type.IsVector)
+			{
+				var elt = f.Type.ElementBase;
+				if (elt.IsScalar())
+				{
+					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + elt.ToCSharpKeyword() + ">(" + pname + "Count)"));
+				}
+				else if (elt == SchemaBaseType.String || elt == SchemaBaseType.Union)
+				{
+					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
+				}
+				else if (elt == SchemaBaseType.Obj && f.Type.ReferencedName != null)
+				{
+					if (_schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
+					{
+						if (def is StructDef)
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + f.Type.ReferencedName + ">(" + pname + "Count)"));
+						else if (def is EnumDef ed)
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + ed.Underlying.ToCSharpKeyword() + ">(" + pname + "Count)"));
+						else
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
+					}
+				}
+			}
+		}
+
+		_sb.Append("\tpublic static int GetMaxSize(");
+		for (int i = 0; i < refFields.Count; i++)
+		{
+			if (i > 0) _sb.Append(", ");
+			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
+		}
+		_sb.Append(") => MaxSize");
+		foreach (var (_, sizeExpr) in refFields)
+			_sb.Append(" + ").Append(sizeExpr);
+		_sb.AppendLine(";");
 	}
 
 	void EmitReserveConstructor(TableDef t)
@@ -399,14 +449,30 @@ public sealed class CodeEmitter
 		}
 		if (f.Type.IsString || f.Type.IsVector)
 		{
-			_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+			if (f.Required)
+			{
+				_sb.Append("\t\tif (").Append(pname).Append(" == 0) throw new InvalidOperationException(\"Required field '").Append(f.Name).AppendLine("' must be set.\");");
+				_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+			}
+			else
+			{
+				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+			}
 			return;
 		}
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
 		{
 			if (def is TableDef)
 			{
-				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				if (f.Required)
+				{
+					_sb.Append("\t\tif (").Append(pname).Append(" == 0) throw new InvalidOperationException(\"Required field '").Append(f.Name).AppendLine("' must be set.\");");
+					_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				}
+				else
+				{
+					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				}
 				return;
 			}
 			if (def is StructDef)
