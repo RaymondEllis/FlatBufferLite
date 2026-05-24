@@ -1,0 +1,12 @@
+namespace FlatBufferLite.Bench;
+
+table Monster {
+	hp: short;
+	mana: short;
+	name: string;
+	x: float;
+	y: float;
+	z: float;
+}
+
+root_type Monster;

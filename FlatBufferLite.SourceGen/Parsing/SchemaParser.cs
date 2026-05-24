@@ -507,13 +507,29 @@ public sealed class SchemaParser
 		while (Peek().Kind != TokenKind.RParen)
 		{
 			var attr = ExpectIdent().Text;
-			if (Match(TokenKind.Colon))
-				Next();
-			if (attr == "deprecated")
-				field.Deprecated = true;
+			switch (attr)
+			{
+				case "deprecated":
+					field.Deprecated = true;
+					break;
+				case "required":
+					field.Required = true;
+					break;
+				case "id":
+					Expect(TokenKind.Colon);
+					field.Id = (int)ParseLongLiteral();
+					if (!Match(TokenKind.Comma))
+						goto done;
+					continue;
+				default:
+					if (Match(TokenKind.Colon))
+						Next();
+					break;
+			}
 			if (!Match(TokenKind.Comma))
 				break;
 		}
+		done:
 		Expect(TokenKind.RParen);
 	}
 
@@ -602,15 +618,35 @@ public sealed class SchemaParser
 	{
 		foreach (var table in schema.Tables)
 		{
-			int slot = 0;
+			bool hasExplicitIds = false;
 			foreach (var f in table.Fields)
+				if (f.Id >= 0) { hasExplicitIds = true; break; }
+
+			if (hasExplicitIds)
 			{
-				f.VTableOffset = 4 + slot * 2;
-				slot++;
-				if (f.Type.Base == SchemaBaseType.Union)
-					slot++; // union occupies two vtable slots: type byte + data offset
+				int maxSlot = -1;
+				foreach (var f in table.Fields)
+				{
+					int slot = f.Id >= 0 ? f.Id : 0;
+					f.VTableOffset = 4 + slot * 2;
+					int top = f.Type.Base == SchemaBaseType.Union ? slot + 1 : slot;
+					if (top > maxSlot)
+						maxSlot = top;
+				}
+				table.SlotCount = maxSlot + 1;
 			}
-			table.SlotCount = slot;
+			else
+			{
+				int slot = 0;
+				foreach (var f in table.Fields)
+				{
+					f.VTableOffset = 4 + slot * 2;
+					slot++;
+					if (f.Type.Base == SchemaBaseType.Union)
+						slot++;
+				}
+				table.SlotCount = slot;
+			}
 		}
 	}
 

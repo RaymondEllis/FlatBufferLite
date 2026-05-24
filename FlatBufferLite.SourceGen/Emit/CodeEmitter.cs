@@ -223,6 +223,10 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic const int InlineSize = ").Append(t.InlineSize).AppendLine(";");
 		_sb.Append("\tpublic const int InlineAlign = ").Append(t.InlineAlign).AppendLine(";");
 
+		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
+		_sb.Append("\tpublic static int GetMaxSize() => ").Append(maxSize).AppendLine(";");
+		_sb.AppendLine("\tpublic int GetSize() => FlatBufferReader.ReadUnaligned<ushort>(_buf, _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos)) + FlatBufferReader.ReadUnaligned<ushort>(_buf, _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos) + 2);");
+
 		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
 
 		EmitReserveConstructor(t);

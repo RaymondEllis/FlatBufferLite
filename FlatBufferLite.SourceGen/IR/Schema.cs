@@ -22,6 +22,8 @@ public sealed class FieldDef
 	public TypeRef Type;
 	public string? DefaultValue;
 	public bool Deprecated;
+	public bool Required;
+	public int Id = -1;
 	public int VTableOffset;
 	public int InlineOffset;
 	public int UnionDataInlineOffset;

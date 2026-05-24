@@ -290,4 +290,77 @@ public class SourceGenFeatureTests
 		var schema = parser.Parse();
 		Assert.Single(schema.Tables);
 	}
+
+	[Fact]
+	public void FieldAttribute_Id_AssignsExplicitVTableSlots()
+	{
+		var source = """
+			table Reordered {
+				y: int (id: 1);
+				x: int (id: 0);
+			}
+			root_type Reordered;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var t = schema.Tables[0];
+		var y = t.Fields[0];
+		var x = t.Fields[1];
+		Assert.Equal(1, y.Id);
+		Assert.Equal(0, x.Id);
+		Assert.Equal(4 + 1 * 2, y.VTableOffset);
+		Assert.Equal(4 + 0 * 2, x.VTableOffset);
+		Assert.Equal(2, t.SlotCount);
+	}
+
+	[Fact]
+	public void FieldAttribute_Required_ParsedAndStored()
+	{
+		var source = """
+			table Strict {
+				name: string (required);
+				value: int;
+			}
+			root_type Strict;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var nameField = schema.Tables[0].Fields[0];
+		Assert.Equal("name", nameField.Name);
+		Assert.True(nameField.Required);
+		Assert.False(schema.Tables[0].Fields[1].Required);
+	}
+
+	[Fact]
+	public void GetMaxSize_EmittedAsStaticMethod()
+	{
+		var source = """
+			table Simple { x: int; }
+			root_type Simple;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public static int GetMaxSize()", code);
+	}
+
+	[Fact]
+	public void GetSize_EmittedAsInstanceMethod()
+	{
+		var source = """
+			table Simple { x: int; }
+			root_type Simple;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public int GetSize()", code);
+	}
+
+	[Fact]
+	public void GetMaxSize_IsAtLeastGetSize()
+	{
+		Span<byte> buf = stackalloc byte[256];
+		var b = new FlatBufferBuilder(buf);
+		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
+		var span = b.AsSpan();
+		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
+		Assert.True(FlatBufferLite.Sample.Player.GetMaxSize() >= player.GetSize());
+	}
 }

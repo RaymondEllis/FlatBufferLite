@@ -6,6 +6,35 @@ A lightweight, zero-allocation, high-performance [FlatBuffers](https://flatbuffe
 
 ---
 
+## Schema Support
+
+The source generator parses `.fbs` files and supports the following FlatBuffers schema features:
+
+| Feature | Status |
+|---|---|
+| `namespace` | ✅ |
+| `table` | ✅ |
+| `struct` | ✅ |
+| `enum` | ✅ |
+| `union` | ✅ |
+| `root_type` (multiple) | ✅ |
+| `file_identifier` | ✅ |
+| `file_extension` | ✅ |
+| `include` / `native_include` | ✅ |
+| `rpc_service` (parsed, no code gen) | ✅ |
+| `attribute` declarations | ✅ |
+| Field attribute: `deprecated` | ✅ |
+| Field attribute: `id` (explicit vtable slot) | ✅ |
+| Field attribute: `required` | ✅ (parsed) |
+| Field attribute: `key`, `hash`, `nested_flatbuffer`, `flexbuffer`, `force_align` | ✅ (parsed, ignored) |
+| Type attribute: `original_order`, `force_align` | ✅ (parsed, ignored) |
+| Enum attribute: `bit_flags` | ✅ |
+| Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
+| Vector types | ✅ |
+| Nested tables, structs, enums in fields | ✅ |
+
+---
+
 ## Writing
 
 Define your schema (`.fbs`) and the source generator emits typed constructors. Strings, vectors, and nested tables must be created before the table that references them.
@@ -33,6 +62,17 @@ pb.Hp = 250;
 ReadOnlySpan<byte> bytes = b.AsSpan();
 ```
 
+### Pre-allocating buffers with `GetMaxSize`
+
+`GetMaxSize()` is a source-generated static method that returns a compile-time constant — the maximum number of bytes needed to write exactly one instance of the table as a root (vtable + table data + root offset + worst-case alignment padding, excluding variable-length fields such as strings and vectors).
+
+```csharp
+Span<byte> buf = stackalloc byte[Player.GetMaxSize()];
+var b = new FlatBufferBuilder(buf);
+new Player(ref b, id: 1, hp: 100);
+ReadOnlySpan<byte> bytes = b.AsSpan();
+```
+
 ---
 
 ## Reading
@@ -54,4 +94,37 @@ var score = new Score(ref b, value: 9_876_543_210L);
 var read  = new Score(b.Buffer, score.Pos);
 
 long v = read.Value; // 9_876_543_210
+```
+
+### Measuring size with `GetSize`
+
+`GetSize()` is a source-generated instance method that reads the vtable to return the exact number of bytes the table's structural data occupies (vtable + table data area, not counting the payloads of referenced strings, vectors, or nested tables).
+
+```csharp
+var player = Player.GetRootAs(bytes);
+int structural = player.GetSize(); // vtable + table data bytes
+int budget     = Player.GetMaxSize(); // upper bound including root + alignment
+```
+
+`GetMaxSize()` is a pure constant (zero memory reads) while `GetSize()` traverses the vtable, making `GetMaxSize()` the right choice for buffer pre-allocation.
+
+---
+
+## Benchmarks
+
+The `FlatBufferLite.Benchmarks` project demonstrates the cost difference:
+
+```
+| Method     | Mean      | Allocated |
+|----------- |----------:|----------:|
+| GetMaxSize | 0.0000 ns |       0 B |
+| GetSize    | ~1.2 ns   |       0 B |
+```
+
+`GetMaxSize()` is folded to a constant by the JIT with no memory access. `GetSize()` requires three reads from the buffer (soffset, vtableSize, tableDataSize).
+
+Run benchmarks:
+
+```
+dotnet run --project FlatBufferLite.Benchmarks -c Release
 ```
