@@ -30,14 +30,14 @@ public ref struct FlatBufferBuilder
 		get => _buf.Length - _space;
 	}
 
-	public ReadOnlySpan<byte> AsSpan()
+	public ReadOnlySpan<byte> Finish()
 	{
 		if (_pendingRoot != 0)
 		{
 			if (_pendingIdentifier.IsEmpty)
-				Finish(_pendingRoot);
+				WriteRoot(_pendingRoot);
 			else
-				Finish(_pendingRoot, _pendingIdentifier);
+				WriteRoot(_pendingRoot, _pendingIdentifier);
 			_pendingRoot = 0;
 			_pendingIdentifier = default;
 		}
@@ -135,7 +135,7 @@ public ref struct FlatBufferBuilder
 		return _space;
 	}
 
-	void Finish(int rootTablePos)
+	void WriteRoot(int rootTablePos)
 	{
 		Align(_minAlign, 4);
 		_space -= 4;
@@ -145,7 +145,7 @@ public ref struct FlatBufferBuilder
 		Unsafe.WriteUnaligned(ref _buf[_space], v);
 	}
 
-	void Finish(int rootTablePos, ReadOnlySpan<byte> fileIdentifier)
+	void WriteRoot(int rootTablePos, ReadOnlySpan<byte> fileIdentifier)
 	{
 		if (fileIdentifier.Length != FlatBufferReader.FileIdentifierLength)
 			ThrowBadIdentifier();

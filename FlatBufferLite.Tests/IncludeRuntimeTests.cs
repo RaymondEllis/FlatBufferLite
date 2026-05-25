@@ -7,9 +7,9 @@ public class IncludeRuntimeTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		var chunk = new Chunk(ref b, pos: new Vector3I { X = 10, Y = 20, Z = 30 });
+		var chunk = Chunk.Create(ref b, pos: new Vector3I { X = 10, Y = 20, Z = 30 });
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = Chunk.GetRootAs(span);
 		Assert.Equal(10, read.Pos.X);
 		Assert.Equal(20, read.Pos.Y);
@@ -41,8 +41,8 @@ public class IncludeRuntimeTests
 		static void Round(Span<byte> buf)
 		{
 			var b = new FlatBufferBuilder(buf);
-			new Chunk(ref b, pos: new Vector3I { X = 1, Y = 2, Z = 3 });
-			var span = b.AsSpan();
+			Chunk.Create(ref b, pos: new Vector3I { X = 1, Y = 2, Z = 3 });
+			var span = b.Finish();
 			var read = Chunk.GetRootAs(span);
 			_ = read.Pos.X + read.Pos.Y + read.Pos.Z;
 		}

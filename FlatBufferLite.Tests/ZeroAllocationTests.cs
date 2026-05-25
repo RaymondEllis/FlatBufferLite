@@ -15,7 +15,7 @@ public class ZeroAllocationTests
 		Vtable.Write<int>(b.Buffer, tp, 8, 12, 3, 0);
 		Vtable.Write<int>(b.Buffer, tp, 10, 16, 4, 0);
 		b.MarkRoot(tp);
-		return b.AsSpan().ToArray();
+		return b.Finish().ToArray();
 	}
 
 	[Fact]
@@ -52,7 +52,7 @@ public class ZeroAllocationTests
 		int tp = b.StartTable(1, 4, 4);
 		Vtable.WriteOffset(b.Buffer, tp, 4, 4, vec);
 		b.MarkRoot(tp);
-		var bytes = b.AsSpan().ToArray();
+		var bytes = b.Finish().ToArray();
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
 		long sum = 0;
@@ -78,7 +78,7 @@ public class ZeroAllocationTests
 		int tp = b.StartTable(1, 4, 4);
 		Vtable.WriteOffset(b.Buffer, tp, 4, 4, s);
 		b.MarkRoot(tp);
-		var bytes = b.AsSpan().ToArray();
+		var bytes = b.Finish().ToArray();
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
 		int total = 0;
@@ -146,9 +146,9 @@ public class ZeroAllocationTests
 		{
 			var b = new FlatBufferBuilder(buf);
 			int name = b.CreateString("Alice"u8);
-			new Player(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f });
+			Player.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f });
 
-			var span = b.AsSpan();
+			var span = b.Finish();
 			var read = Player.GetRootAs(span);
 			_ = read.Id + read.Hp;
 		}

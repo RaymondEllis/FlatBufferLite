@@ -347,8 +347,8 @@ public class SourceGenFeatureTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
-		var span = b.AsSpan();
+		FlatBufferLite.Sample.Player.Create(ref b, id: 1, hp: 50);
+		var span = b.Finish();
 		var player = Sample.Player.GetRootAs(span);
 		Assert.True(Sample.Player.TableMaxSize >= player.GetSize());
 	}
@@ -363,8 +363,8 @@ public class SourceGenFeatureTests
 		var b = new FlatBufferBuilder(buf);
 		int name = b.CreateString("Alice"u8);
 		int inv  = b.CreateVector<int>(new[] { 10, 20, 30 });
-		new FlatBufferLite.Sample.Player(ref b, id: 42, name: name, hp: 250, inventory: inv);
-		var bytes = b.AsSpan();
+		FlatBufferLite.Sample.Player.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
+		var bytes = b.Finish();
 		Assert.True(needed >= bytes.Length);
 	}
 
@@ -401,7 +401,7 @@ public class SourceGenFeatureTests
 		var buf = new byte[256];
 		var b = new FlatBufferBuilder(buf);
 		bool threw = false;
-		try { new FlatBufferLite.Req.Doc(ref b, title: 0); }
+		try { FlatBufferLite.Req.Doc.Create(ref b, title: 0); }
 		catch (InvalidOperationException) { threw = true; }
 		Assert.True(threw, "Expected InvalidOperationException for required field with offset 0.");
 	}
@@ -453,15 +453,15 @@ public class SourceGenFeatureTests
 		int n2 = b.CreateString("two"u8);
 		int n3 = b.CreateString("three"u8);
 
-		var e1 = new FlatBufferLite.Attr.Entry(ref b, id: 10, name: n1);
-		var e2 = new FlatBufferLite.Attr.Entry(ref b, id: 20, name: n2);
-		var e3 = new FlatBufferLite.Attr.Entry(ref b, id: 30, name: n3);
+		var e1 = FlatBufferLite.Attr.Entry.Create(ref b, id: 10, name: n1);
+		var e2 = FlatBufferLite.Attr.Entry.Create(ref b, id: 20, name: n2);
+		var e3 = FlatBufferLite.Attr.Entry.Create(ref b, id: 30, name: n3);
 
 		ReadOnlySpan<int> offsets = stackalloc int[] { e1.BufferPos, e2.BufferPos, e3.BufferPos };
 		int vec = b.CreateVectorOfOffsets(offsets);
 
-		var outer = new FlatBufferLite.Attr.Inner(ref b, value: 0);
-		_ = b.AsSpan();
+		var outer = FlatBufferLite.Attr.Inner.Create(ref b, value: 0);
+		_ = b.Finish();
 
 		var v = new FlatBufferLite.Attr.EntryVector(b.Buffer, vec);
 		Assert.Equal(3, v.Length);
@@ -517,14 +517,14 @@ public class SourceGenFeatureTests
 	{
 		Span<byte> innerBuf = stackalloc byte[128];
 		var ib = new FlatBufferBuilder(innerBuf);
-		new FlatBufferLite.Attr.Inner(ref ib, value: 42);
-		var innerBytes = ib.AsSpan();
+		FlatBufferLite.Attr.Inner.Create(ref ib, value: 42);
+		var innerBytes = ib.Finish();
 
 		Span<byte> outerBuf = stackalloc byte[512];
 		var ob = new FlatBufferBuilder(outerBuf);
 		int blob = ob.CreateVector<byte>(MemoryMarshal.Cast<byte, byte>(innerBytes));
-		var outer = new FlatBufferLite.Attr.Outer(ref ob, blob: blob);
-		var outerBytes = ob.AsSpan();
+		FlatBufferLite.Attr.Outer.Create(ref ob, blob: blob);
+		var outerBytes = ob.Finish();
 
 		var o = Attr.Outer.GetRootAs(outerBytes);
 		var nested = o.BlobNested;

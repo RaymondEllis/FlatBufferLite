@@ -111,7 +111,7 @@ public class FlatBufferBuilderTests
 		var b = new FlatBufferBuilder(buf);
 		int tp = b.StartTable(0, 0, 4);
 		b.MarkRoot(tp, "ABCD"u8);
-		var span = b.AsSpan();
+		var span = b.Finish();
 		Assert.True(FlatBufferReader.HasIdentifier(span, "ABCD"u8));
 	}
 

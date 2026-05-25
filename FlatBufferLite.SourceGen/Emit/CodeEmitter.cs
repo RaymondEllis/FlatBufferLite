@@ -321,10 +321,10 @@ public sealed class CodeEmitter
 
 	void EmitReserveConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(ref FlatBufferBuilder builder)");
+		_sb.Append("\tpublic static ").Append(t.Name).AppendLine(" Create(ref FlatBufferBuilder builder)");
 		_sb.AppendLine("\t{");
-		_sb.Append("\t\t_pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\t_buf = builder.Buffer;");
+		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
+		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -332,7 +332,8 @@ public sealed class CodeEmitter
 			EmitForceInlineAssign(f);
 		}
 		if (_schema.RootTypes.Contains(t.Name))
-			_sb.AppendLine("\t\tbuilder.MarkRoot(_pos);");
+			_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
+		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}
 
@@ -342,14 +343,14 @@ public sealed class CodeEmitter
 		int vto = f.VTableOffset;
 		if (f.Type.IsUnion)
 		{
-			_sb.Append("\t\tVtable.WriteForced<byte>(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", 0);");
+			_sb.Append("\t\tVtable.WriteForced<byte>(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", 0);");
 			return;
 		}
 		if (f.Type.Base.IsScalar())
 		{
 			string cs = ScalarCSharpType(f.Type, out string defLit);
 			string schemaDefault = !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defLit;
-			_sb.Append("\t\tVtable.WriteForced<").Append(cs).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(schemaDefault).AppendLine(");");
+			_sb.Append("\t\tVtable.WriteForced<").Append(cs).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(schemaDefault).AppendLine(");");
 			return;
 		}
 		if (f.Type.IsString || f.Type.IsVector)
@@ -360,7 +361,7 @@ public sealed class CodeEmitter
 				return;
 			if (def is StructDef)
 			{
-				_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
 				return;
 			}
 			if (def is EnumDef ed)
@@ -369,7 +370,7 @@ public sealed class CodeEmitter
 				string defValue = !string.IsNullOrEmpty(f.DefaultValue)
 					? "(" + under + ")" + ed.Name + "." + f.DefaultValue
 					: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
-				_sb.Append("\t\tVtable.WriteForced<").Append(under).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(defValue).AppendLine(");");
+				_sb.Append("\t\tVtable.WriteForced<").Append(under).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(defValue).AppendLine(");");
 				return;
 			}
 		}
@@ -377,7 +378,7 @@ public sealed class CodeEmitter
 
 	void EmitBuildConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic ").Append(t.Name).Append("(ref FlatBufferBuilder builder");
+		_sb.Append("\tpublic static ").Append(t.Name).Append(" Create(ref FlatBufferBuilder builder");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -392,8 +393,8 @@ public sealed class CodeEmitter
 		}
 		_sb.AppendLine(")");
 		_sb.AppendLine("\t{");
-		_sb.Append("\t\t_pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\t_buf = builder.Buffer;");
+		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
+		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -401,7 +402,8 @@ public sealed class CodeEmitter
 			EmitBuildAssign(f);
 		}
 		if (_schema.RootTypes.Contains(t.Name))
-			_sb.AppendLine("\t\tbuilder.MarkRoot(_pos);");
+			_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
+		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}
 
@@ -453,24 +455,24 @@ public sealed class CodeEmitter
 		{
 			int dataVto = vto + 2;
 			int dataAbsInline = f.UnionDataInlineOffset + 4;
-			_sb.Append("\t\tVtable.Write<byte>(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", (byte)").Append(pname).Append("Type, 0);");
+			_sb.Append("\t\tVtable.Write<byte>(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", (byte)").Append(pname).Append("Type, 0);");
 			_sb.AppendLine();
-			_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(dataVto).Append(", ").Append(dataAbsInline).Append(", ").Append(pname).AppendLine(");");
+			_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(dataVto).Append(", ").Append(dataAbsInline).Append(", ").Append(pname).AppendLine(");");
 			return;
 		}
 		if (f.Type.Base.IsScalar())
 		{
 			string cs = ScalarCSharpType(f.Type, out string defLit);
 			string schemaDefault = !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defLit;
-			_sb.Append("\t\tVtable.Write<").Append(cs).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).Append(", ").Append(schemaDefault).AppendLine(");");
+			_sb.Append("\t\tVtable.Write<").Append(cs).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).Append(", ").Append(schemaDefault).AppendLine(");");
 			return;
 		}
 		if (f.Type.IsString || f.Type.IsVector)
 		{
 			if (f.Required)
-				_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				_sb.Append("\t\tVtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 			else
-				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 			return;
 		}
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
@@ -478,14 +480,14 @@ public sealed class CodeEmitter
 			if (def is TableDef)
 			{
 				if (f.Required)
-					_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+					_sb.Append("\t\tVtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 				else
-					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 				return;
 			}
 			if (def is StructDef)
 			{
-				_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
 				return;
 			}
 			if (def is EnumDef ed)
@@ -494,7 +496,7 @@ public sealed class CodeEmitter
 				string defValue = !string.IsNullOrEmpty(f.DefaultValue)
 					? "(" + under + ")" + ed.Name + "." + f.DefaultValue
 					: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
-				_sb.Append("\t\tVtable.Write<").Append(under).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", (").Append(under).Append(')').Append(pname).Append(", ").Append(defValue).AppendLine(");");
+				_sb.Append("\t\tVtable.Write<").Append(under).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", (").Append(under).Append(')').Append(pname).Append(", ").Append(defValue).AppendLine(");");
 				return;
 			}
 		}

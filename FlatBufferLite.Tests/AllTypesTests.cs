@@ -9,7 +9,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		var sb = new Scalars(ref b);
+		var sb = Scalars.Create(ref b);
 		sb.BoolVal = true;
 		sb.ByteVal = -5;
 		sb.UbyteVal = 200;
@@ -24,7 +24,7 @@ public class AllTypesTests
 		sb.DefaultShort = 99;
 		sb.DefaultBool = false;
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var s = Scalars.GetRootAs(span);
 
 		Assert.True(s.BoolVal);
@@ -47,9 +47,9 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		new Scalars(ref b);
+		Scalars.Create(ref b);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var s = Scalars.GetRootAs(span);
 
 		Assert.False(s.BoolVal);
@@ -72,7 +72,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var sb = new Score(ref b);
+		var sb = Score.Create(ref b);
 		sb.Value = 9_876_543_210L;
 		var sc = new Score(b.Buffer, sb.BufferPos);
 		Assert.Equal(9_876_543_210L, sc.Value);
@@ -86,8 +86,8 @@ public class AllTypesTests
 
 		int hello = b.CreateString("hello world"u8);
 
-		var score = new Score(ref b, value: 42L);
-		var rb = new Refs(ref b, strVal: hello, scoreVal: score.BufferPos, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
+		var score = Score.Create(ref b, value: 42L);
+		var rb = Refs.Create(ref b, strVal: hello, scoreVal: score.BufferPos, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
 		var r = new Refs(b.Buffer, rb.BufferPos);
 
 		Assert.Equal("hello world", r.StrVal.ToString());
@@ -104,7 +104,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var rb = new Refs(ref b);
+		var rb = Refs.Create(ref b);
 		var r = new Refs(b.Buffer, rb.BufferPos);
 
 		Assert.False(r.StrVal.IsValid);
@@ -128,7 +128,7 @@ public class AllTypesTests
 		int fv = b.CreateVector(floats);
 		int lv = b.CreateVector(longs);
 
-		var vb = new Vectors(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
+		var vb = Vectors.Create(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
 		var v = new Vectors(b.Buffer, vb.BufferPos);
 
 		var ri = v.IntVec.AsSpan;
@@ -161,7 +161,7 @@ public class AllTypesTests
 		ReadOnlySpan<int> offsets = stackalloc int[] { s0, s1, s2 };
 		int strVec = b.CreateVectorOfOffsets(offsets);
 
-		var vb = new Vectors(ref b, strVec: strVec);
+		var vb = Vectors.Create(ref b, strVec: strVec);
 		var fv = new Vectors(b.Buffer, vb.BufferPos).StrVec;
 
 		Assert.Equal(3, fv.Length);
@@ -183,7 +183,7 @@ public class AllTypesTests
 		var b = new FlatBufferBuilder(buf);
 		int vv = b.CreateVector(vecs);
 
-		var vb = new Vectors(ref b, vec2Vec: vv);
+		var vb = Vectors.Create(ref b, vec2Vec: vv);
 		var fv = new Vectors(b.Buffer, vb.BufferPos).Vec2Vec;
 
 		Assert.Equal(3, fv.Length);
@@ -199,7 +199,7 @@ public class AllTypesTests
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
 		int empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
-		var vb = new Vectors(ref b, intVec: empty);
+		var vb = Vectors.Create(ref b, intVec: empty);
 		var fv = new Vectors(b.Buffer, vb.BufferPos).IntVec;
 
 		Assert.True(fv.IsValid);
@@ -211,7 +211,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var vb = new Vectors(ref b);
+		var vb = Vectors.Create(ref b);
 		var v = new Vectors(b.Buffer, vb.BufferPos);
 
 		Assert.False(v.IntVec.IsValid);
@@ -232,7 +232,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var fb = new Flagged(ref b, perms: Flags.Read | Flags.Execute);
+		var fb = Flagged.Create(ref b, perms: Flags.Read | Flags.Execute);
 		var f = new Flagged(b.Buffer, fb.BufferPos);
 		Assert.Equal(Flags.Read | Flags.Execute, f.Perms);
 		Assert.Equal(5u, (uint)f.Perms);
@@ -243,7 +243,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var fb = new Flagged(ref b);
+		var fb = Flagged.Create(ref b);
 		var f = new Flagged(b.Buffer, fb.BufferPos);
 		Assert.Equal(0u, (uint)f.Perms);
 	}
@@ -257,8 +257,8 @@ public class AllTypesTests
 		int myCircle = b.CreateString("my-circle"u8);
 		int afterUnion = b.CreateString("after-union"u8);
 
-		var cb = new Circle(ref b, radius: 5.0f);
-		var wu = new WithUnion(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: afterUnion);
+		var cb = Circle.Create(ref b, radius: 5.0f);
+		var wu = WithUnion.Create(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: afterUnion);
 		var read = new WithUnion(b.Buffer, wu.BufferPos);
 
 		Assert.Equal("my-circle", read.Name.ToString());
@@ -280,8 +280,8 @@ public class AllTypesTests
 
 		int nameOff = b.CreateString("my-rect"u8);
 
-		var rb = new Rectangle(ref b, width: 3.0f, height: 7.5f);
-		var wu = new WithUnion(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.BufferPos);
+		var rb = Rectangle.Create(ref b, width: 3.0f, height: 7.5f);
+		var wu = WithUnion.Create(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.BufferPos);
 		var read = new WithUnion(b.Buffer, wu.BufferPos);
 
 		Assert.Equal(ShapeKind.Rectangle, read.ShapeType);
@@ -297,7 +297,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var wu = new WithUnion(ref b);
+		var wu = WithUnion.Create(ref b);
 		var read = new WithUnion(b.Buffer, wu.BufferPos);
 
 		Assert.Equal(ShapeKind.NONE, read.ShapeType);
@@ -312,8 +312,8 @@ public class AllTypesTests
 
 		int sentinel = b.CreateString("sentinel"u8);
 
-		var cb = new Circle(ref b, radius: 1.0f);
-		var wu = new WithUnion(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: sentinel);
+		var cb = Circle.Create(ref b, radius: 1.0f);
+		var wu = WithUnion.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: sentinel);
 		var read = new WithUnion(b.Buffer, wu.BufferPos);
 
 		Assert.Equal("sentinel", read.Tag.ToString());

@@ -123,10 +123,10 @@ public class UnionTests
 
 		int sceneName = b.CreateString("scene-rect"u8);
 
-		var rectB = new Rect(ref b, w: 3.0f, h: 7.0f);
-		new Scene(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);
+		var rectB = Rect.Create(ref b, w: 3.0f, h: 7.0f);
+		Scene.Create(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = Scene.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.Rect, read.ShapeType);
@@ -145,10 +145,10 @@ public class UnionTests
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 
-		var cb = new Circle(ref b, r: 5.5f);
-		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 7);
+		var cb = Circle.Create(ref b, r: 5.5f);
+		Scene.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 7);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = Scene.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.Circle, read.ShapeType);
@@ -164,9 +164,9 @@ public class UnionTests
 	{
 		Span<byte> buf = stackalloc byte[64];
 		var b = new FlatBufferBuilder(buf);
-		new Scene(ref b);
+		Scene.Create(ref b);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = Scene.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.NONE, read.ShapeType);
@@ -180,10 +180,10 @@ public class UnionTests
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 
-		var cb = new Circle(ref b, r: 1.0f);
-		new Scene(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 99);
+		var cb = Circle.Create(ref b, r: 1.0f);
+		Scene.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 99);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = Scene.GetRootAs(span);
 
 		Assert.Equal(99, read.Count);

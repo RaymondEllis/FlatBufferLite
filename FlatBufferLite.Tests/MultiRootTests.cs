@@ -10,9 +10,9 @@ public class MultiRootTests
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 		int name = b.CreateString("region1"u8);
-		var region = new RegionData(ref b, id: 1, name: name);
+		var region = RegionData.Create(ref b, id: 1, name: name);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = RegionData.GetRootAs(span);
 		Assert.Equal(1, read.Id);
 		Assert.Equal("region1", read.Name.ToString());
@@ -23,9 +23,9 @@ public class MultiRootTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		var world = new WorldIndexData(ref b, version: 42);
+		var world = WorldIndexData.Create(ref b, version: 42);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = WorldIndexData.GetRootAs(span);
 		Assert.Equal(42, read.Version);
 	}
@@ -35,11 +35,11 @@ public class MultiRootTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		var meta = new MetaData(ref b);
+		var meta = MetaData.Create(ref b);
 		meta.Tag = 99;
 		meta.MarkAsRoot(ref b);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var read = MetaData.GetRootAs(span);
 		Assert.Equal(99, read.Tag);
 	}

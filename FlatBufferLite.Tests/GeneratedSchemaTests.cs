@@ -9,9 +9,9 @@ public class GeneratedSchemaTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		new Player(ref b);
+		Player.Create(ref b);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var player = Player.GetRootAs(span);
 		Assert.Equal(0, player.Id);
 		Assert.Equal((short)100, player.Hp);
@@ -29,9 +29,9 @@ public class GeneratedSchemaTests
 		int name = b.CreateString("Alice"u8);
 		int invOff = b.CreateVector<int>(inv);
 
-		var pb = new Player(ref b, id: 42, name: name, hp: 250, status: Status.Pending, inventory: invOff);
+		var pb = Player.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, inventory: invOff);
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var player = Player.GetRootAs(span);
 		Assert.Equal(42, player.Id);
 		Assert.Equal("Alice", player.Name.ToString());
@@ -49,10 +49,10 @@ public class GeneratedSchemaTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		var pb = new Player(ref b);
+		var pb = Player.Create(ref b);
 		pb.Position = new Vec3 { X = 1.5f, Y = -2.5f, Z = 3.5f };
 
-		var span = b.AsSpan();
+		var span = b.Finish();
 		var player = Player.GetRootAs(span);
 		Assert.Equal(1.5f, player.Position.X);
 		Assert.Equal(-2.5f, player.Position.Y);
