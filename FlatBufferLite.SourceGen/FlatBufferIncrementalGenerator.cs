@@ -2,9 +2,11 @@ using FlatBufferLite.SourceGen.Emit;
 using FlatBufferLite.SourceGen.Parsing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FlatBufferLite.SourceGen;
 
@@ -19,12 +21,12 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
 		var fbsFiles = context.AdditionalTextsProvider
-			.Where(at => at.Path.EndsWith(".fbs", System.StringComparison.OrdinalIgnoreCase))
+			.Where(at => at.Path.EndsWith(".fbs", StringComparison.OrdinalIgnoreCase))
 			.Collect();
 
 		context.RegisterSourceOutput(fbsFiles, (spc, files) =>
 		{
-			var fileContents = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+			var fileContents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (var f in files)
 			{
 				var text = f.GetText()?.ToString();
@@ -44,13 +46,13 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 						spc.ReportDiagnostic(Diagnostic.Create(DiagWarning, Location.None, w));
 					var code = new CodeEmitter(schema).Emit();
 					var hint = $"{BuildHintName(at.Path)}.g.cs";
-					spc.AddSource(hint, SourceText.From(code, System.Text.Encoding.UTF8));
+					spc.AddSource(hint, SourceText.From(code, Encoding.UTF8));
 				}
 				catch (SchemaParseException ex)
 				{
 					spc.ReportDiagnostic(Diagnostic.Create(DiagParseError, Location.None, at.Path, ex.Message));
 				}
-				catch (System.Exception ex)
+				catch (Exception ex)
 				{
 					spc.ReportDiagnostic(Diagnostic.Create(DiagCodeGenError, Location.None, at.Path, ex.Message));
 				}
@@ -74,7 +76,7 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 		{
 			relative = normalized;
 		}
-		var withoutExt = relative.EndsWith(".fbs", System.StringComparison.OrdinalIgnoreCase)
+		var withoutExt = relative.EndsWith(".fbs", StringComparison.OrdinalIgnoreCase)
 			? relative.Substring(0, relative.Length - 4)
 			: relative;
 		return SanitizeHint(withoutExt);
@@ -82,7 +84,7 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 
 	static string SanitizeHint(string s)
 	{
-		var sb = new System.Text.StringBuilder(s.Length);
+		var sb = new StringBuilder(s.Length);
 		foreach (var c in s)
 			sb.Append(char.IsLetterOrDigit(c) || c == '_' ? c : '_');
 		return sb.ToString();

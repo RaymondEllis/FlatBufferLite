@@ -18,11 +18,11 @@ public ref struct FlatBufferBuilder
 		_minAlign = 1;
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly ReadOnlySpan<byte> AsSpan() => _buf.Slice(_space);
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public readonly Span<byte> GetWritableBuffer() => _buf;
+	public readonly Span<byte> Buffer
+	{
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		get => _buf;
+	}
 
 	public readonly int Length
 	{

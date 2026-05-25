@@ -1,3 +1,5 @@
+using System;
+
 namespace FlatBufferLite.SourceGen.IR;
 
 public enum SchemaBaseType : byte
@@ -51,6 +53,6 @@ public static class SchemaBaseTypeExtensions
 		SchemaBaseType.ULong => "ulong",
 		SchemaBaseType.Float => "float",
 		SchemaBaseType.Double => "double",
-		_ => throw new System.InvalidOperationException($"Type {type} has no C# keyword."),
+		_ => throw new InvalidOperationException($"Type {type} has no C# keyword."),
 	};
 }

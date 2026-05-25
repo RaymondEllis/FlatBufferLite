@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -45,8 +46,8 @@ public readonly ref struct FlatVector<T> where T : unmanaged
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get
 		{
-			System.Diagnostics.Debug.Assert(index >= 0);
-			System.Diagnostics.Debug.Assert((uint)index < (uint)Length);
+			Debug.Assert(index >= 0);
+			Debug.Assert((uint)index < (uint)Length);
 			return FlatBufferReader.ReadUnaligned<T>(Buffer, Position + 4 + index * Unsafe.SizeOf<T>());
 		}
 	}
@@ -81,8 +82,8 @@ public readonly ref struct FlatStringVector
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get
 		{
-			System.Diagnostics.Debug.Assert(index >= 0);
-			System.Diagnostics.Debug.Assert((uint)index < (uint)Length);
+			Debug.Assert(index >= 0);
+			Debug.Assert((uint)index < (uint)Length);
 			int eltOff = Position + 4 + index * 4;
 			int strOff = eltOff + (int)FlatBufferReader.ReadUnaligned<uint>(Buffer, eltOff);
 			return new FlatString(Buffer, strOff);

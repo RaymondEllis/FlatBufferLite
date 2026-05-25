@@ -327,7 +327,7 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic static ").Append(t.Name).AppendLine(" Create(ref FlatBufferBuilder builder)");
 		_sb.AppendLine("\t{");
 		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.GetWritableBuffer();");
+		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -397,7 +397,7 @@ public sealed class CodeEmitter
 		_sb.AppendLine(")");
 		_sb.AppendLine("\t{");
 		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.GetWritableBuffer();");
+		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)

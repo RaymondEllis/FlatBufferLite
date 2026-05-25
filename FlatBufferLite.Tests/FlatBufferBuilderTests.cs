@@ -156,7 +156,7 @@ public class FlatBufferBuilderTests
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
 		_ = b.CreateString("abc"u8);
-		Assert.Equal(b.Length, b.AsSpan().Length);
+		Assert.Equal(b.Length, b.Finish().Length);
 	}
 
 	[Fact]
