@@ -827,10 +827,14 @@ public sealed class CodeEmitter
 	{
 		if (string.IsNullOrEmpty(s))
 			return false;
+		if (s[0] == '.' || s[s.Length - 1] == '.')
+			return false;
 		for (int i = 0; i < s.Length; i++)
 		{
 			char c = s[i];
-			if (c == '.' || c == '_')
+			if (c == '.')
+				continue;
+			if (c == '_')
 				continue;
 			if (i == 0 || (i > 0 && s[i - 1] == '.'))
 			{
