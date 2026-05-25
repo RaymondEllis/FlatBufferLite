@@ -66,6 +66,7 @@ public sealed class EnumValueDef
 {
 	public string Name = "";
 	public long Value;
+	public bool IsExplicit;
 }
 
 public sealed class EnumDef : ISchemaDef

@@ -53,7 +53,7 @@ public static class Vtable
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void WriteForced<T>(Span<byte> buffer, int tablePos, int vtableField, int inlineOffset, T value)
+	public static void WriteForced<T>(Span<byte> buffer, int tablePos, int vtableField, int inlineOffset, in T value)
 		where T : unmanaged
 	{
 		int vt = tablePos - FlatBufferReader.ReadUnaligned<int>(buffer, tablePos);
@@ -62,14 +62,6 @@ public static class Vtable
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void WriteStruct<T>(Span<byte> buffer, int tablePos, int vtableField, int inlineOffset, in T value)
-		where T : unmanaged
-	{
-		int vt = tablePos - FlatBufferReader.ReadUnaligned<int>(buffer, tablePos);
-		Unsafe.WriteUnaligned(ref buffer[vt + vtableField], (ushort)inlineOffset);
-		Unsafe.WriteUnaligned(ref buffer[tablePos + inlineOffset], value);
-	}
-
 	public static void WriteOffset(Span<byte> buffer, int tablePos, int vtableField, int inlineOffset, int dataAbsPos)
 	{
 		int vt = tablePos - FlatBufferReader.ReadUnaligned<int>(buffer, tablePos);

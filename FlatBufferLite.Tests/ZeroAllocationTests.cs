@@ -10,10 +10,10 @@ public class ZeroAllocationTests
 		var buf = new byte[256];
 		var b = new FlatBufferBuilder(buf);
 		int tp = b.StartTable(4, 16, 4);
-		Vtable.Write<int>(b.Buffer, tp, 4, 4, 1, 0);
-		Vtable.Write<int>(b.Buffer, tp, 6, 8, 2, 0);
-		Vtable.Write<int>(b.Buffer, tp, 8, 12, 3, 0);
-		Vtable.Write<int>(b.Buffer, tp, 10, 16, 4, 0);
+		Vtable.Write<int>(buf, tp, 4, 4, 1, 0);
+		Vtable.Write<int>(buf, tp, 6, 8, 2, 0);
+		Vtable.Write<int>(buf, tp, 8, 12, 3, 0);
+		Vtable.Write<int>(buf, tp, 10, 16, 4, 0);
 		b.MarkRoot(tp);
 		return b.Finish().ToArray();
 	}
@@ -22,6 +22,8 @@ public class ZeroAllocationTests
 	public void TableScalarReads_DoNotAllocate()
 	{
 		var bytes = BuildScalarBuffer();
+
+		WarmScalar(bytes);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
 		long sum = 0;
@@ -37,6 +39,14 @@ public class ZeroAllocationTests
 		long after = GC.GetAllocatedBytesForCurrentThread();
 		Assert.Equal(0, after - before);
 		Assert.Equal(100_000L, sum);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void WarmScalar(byte[] bytes)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			_ = Vtable.Read<int>(span, pos, 4, 0);
+		}
 	}
 
 	[Fact]
@@ -50,9 +60,11 @@ public class ZeroAllocationTests
 		var b = new FlatBufferBuilder(raw);
 		int vec = b.CreateVector<int>(data);
 		int tp = b.StartTable(1, 4, 4);
-		Vtable.WriteOffset(b.Buffer, tp, 4, 4, vec);
+		Vtable.WriteOffset(raw, tp, 4, 4, vec);
 		b.MarkRoot(tp);
 		var bytes = b.Finish().ToArray();
+
+		WarmVector(bytes);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
 		long sum = 0;
@@ -67,6 +79,15 @@ public class ZeroAllocationTests
 		}
 		long after = GC.GetAllocatedBytesForCurrentThread();
 		Assert.Equal(0, after - before);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void WarmVector(byte[] bytes)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			var v = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 4));
+			_ = v.AsSpan;
+		}
 	}
 
 	[Fact]
@@ -76,9 +97,11 @@ public class ZeroAllocationTests
 		var b = new FlatBufferBuilder(raw);
 		int s = b.CreateString("performance"u8);
 		int tp = b.StartTable(1, 4, 4);
-		Vtable.WriteOffset(b.Buffer, tp, 4, 4, s);
+		Vtable.WriteOffset(raw, tp, 4, 4, s);
 		b.MarkRoot(tp);
 		var bytes = b.Finish().ToArray();
+
+		WarmString(bytes);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
 		int total = 0;
@@ -92,6 +115,15 @@ public class ZeroAllocationTests
 		long after = GC.GetAllocatedBytesForCurrentThread();
 		Assert.Equal(0, after - before);
 		Assert.Equal(5_000 * "performance"u8.Length, total);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void WarmString(byte[] bytes)
+		{
+			ReadOnlySpan<byte> span = bytes;
+			int pos = FlatBufferReader.GetRootOffset(span);
+			var str = new FlatString(span, Vtable.ReadIndirect(span, pos, 4));
+			_ = str.AsBytes.Length;
+		}
 	}
 
 	[Fact]
@@ -120,9 +152,15 @@ public class ZeroAllocationTests
 			int s = b.CreateString(name);
 			int v = b.CreateVector<int>(data);
 			int tp = b.StartTable(3, 12, 4);
-			Vtable.Write<int>(b.Buffer, tp, 4, 4, 7, 0);
-			Vtable.WriteOffset(b.Buffer, tp, 6, 8, s);
-			Vtable.WriteOffset(b.Buffer, tp, 8, 12, v);
+			Vtable.Write<int>(buf, tp, 4, 4, 7, 0);
+			Vtable.WriteOffset(buf, tp, 6, 8, s);
+			Vtable.WriteOffset(buf, tp, 8, 12, v);
+			b.MarkRoot(tp);
+			var span = b.Finish();
+			int pos = FlatBufferReader.GetRootOffset(span);
+			_ = Vtable.Read<int>(span, pos, 4, 0);
+			_ = new FlatString(span, Vtable.ReadIndirect(span, pos, 6));
+			_ = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 8)).AsSpan;
 		}
 	}
 

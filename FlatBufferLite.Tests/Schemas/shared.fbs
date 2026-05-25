@@ -1,3 +1,5 @@
+namespace FlatBufferLite.Includes;
+
 struct Vector3I {
 	x: int;
 	y: int;

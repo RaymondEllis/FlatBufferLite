@@ -227,8 +227,23 @@ public sealed class SchemaParser
 		_tokens = new Lexer(source).Tokenize();
 	}
 
-	Token Peek(int n = 0) => _tokens[_pos + n];
-	Token Next() => _tokens[_pos++];
+	Token Peek(int n = 0)
+	{
+		int idx = _pos + n;
+		if (idx >= _tokens.Count)
+			return _tokens[_tokens.Count - 1]; // EOF token
+		return _tokens[idx];
+	}
+
+	Token Next()
+	{
+		if (_pos >= _tokens.Count - 1)
+		{
+			var eof = _tokens[_tokens.Count - 1];
+			throw new SchemaParseException("Unexpected end of file", eof.Line, eof.Column);
+		}
+		return _tokens[_pos++];
+	}
 
 	bool Match(TokenKind kind)
 	{
@@ -291,10 +306,13 @@ public sealed class SchemaParser
 				case "native_include": _pos++; Expect(TokenKind.StringLit); Expect(TokenKind.Semicolon); break;
 				case "rpc_service": ParseRpcService(schema); break;
 				case "attribute":
-					_pos++; if (Peek().Kind == TokenKind.StringLit)
+					_pos++;
+					if (Peek().Kind == TokenKind.StringLit)
 						_pos++;
 					else
-						ExpectIdent(); Expect(TokenKind.Semicolon); break;
+						ExpectIdent();
+					Expect(TokenKind.Semicolon);
+					break;
 				default: throw new SchemaParseException($"Unknown declaration '{t.Text}'", t.Line, t.Column);
 			}
 		}
@@ -302,17 +320,17 @@ public sealed class SchemaParser
 		return schema;
 	}
 
-	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents)
+	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents, List<string>? missingIncludes = null)
 	{
 		var normalized = entryFilePath.Replace('/', Path.DirectorySeparatorChar);
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 		{
 			normalized
 		};
-		return ParseWithIncludes(normalized, fileContents, visited);
+		return ParseWithIncludes(normalized, fileContents, visited, missingIncludes);
 	}
 
-	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited)
+	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited, List<string>? missingIncludes)
 	{
 		if (!fileContents.TryGetValue(filePath, out var source))
 			source = "";
@@ -326,8 +344,11 @@ public sealed class SchemaParser
 			if (!visited.Add(resolved))
 				continue;
 			if (!fileContents.ContainsKey(resolved))
+			{
+				missingIncludes?.Add(include);
 				continue;
-			var included = ParseWithIncludes(resolved, fileContents, visited);
+			}
+			var included = ParseWithIncludes(resolved, fileContents, visited, missingIncludes);
 			schema.MergeFrom(included);
 		}
 
@@ -420,11 +441,13 @@ public sealed class SchemaParser
 		{
 			var vname = ExpectIdent().Text;
 			long val = autoVal;
+			bool isExplicit = false;
 			if (Match(TokenKind.Assign))
 			{
 				val = ParseLongLiteral();
+				isExplicit = true;
 			}
-			e.Values.Add(new EnumValueDef { Name = vname, Value = val });
+			e.Values.Add(new EnumValueDef { Name = vname, Value = val, IsExplicit = isExplicit });
 			autoVal = val + 1;
 			if (!Match(TokenKind.Comma))
 				break;
