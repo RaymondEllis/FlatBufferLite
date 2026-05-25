@@ -1,6 +1,5 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
-using FlatBufferLite;
 using FlatBufferLite.Bench;
 
 BenchmarkRunner.Run<WriteBenchmarks>();

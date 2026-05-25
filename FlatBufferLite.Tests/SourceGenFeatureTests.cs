@@ -1,7 +1,5 @@
 using FlatBufferLite.SourceGen.IR;
 using FlatBufferLite.SourceGen.Parsing;
-using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 
 namespace FlatBufferLite.Tests;
