@@ -1,0 +1,19 @@
+namespace FlatBufferLite.Attr;
+
+// Tests nested_flatbuffer: a blob field containing a full FlatBuffer of type Inner.
+table Inner {
+	value: int;
+}
+
+table Outer {
+	blob: [ubyte] (nested_flatbuffer: "Inner");
+}
+
+// Tests key: sorted vector of Entry by id for binary search.
+table Entry {
+	id: int (key);
+	name: string;
+}
+
+root_type Inner;
+root_type Outer;

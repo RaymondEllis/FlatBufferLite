@@ -2,6 +2,7 @@ using FlatBufferLite.SourceGen.IR;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace FlatBufferLite.SourceGen.Parsing;
@@ -288,7 +289,7 @@ public sealed class SchemaParser
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "include": _pos++; schema.Includes.Add(Expect(TokenKind.StringLit).Text); Expect(TokenKind.Semicolon); break;
 				case "native_include": _pos++; Expect(TokenKind.StringLit); Expect(TokenKind.Semicolon); break;
-				case "rpc_service": ParseRpcService(); break;
+				case "rpc_service": ParseRpcService(schema); break;
 				case "attribute":
 					_pos++; if (Peek().Kind == TokenKind.StringLit)
 						_pos++;
@@ -301,34 +302,32 @@ public sealed class SchemaParser
 		return schema;
 	}
 
-	public static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver)
+	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents)
 	{
-		return ParseWithIncludes(source, (path, _) =>
+		var normalized = entryFilePath.Replace('/', Path.DirectorySeparatorChar);
+		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 		{
-			var content = fileResolver(path);
-			return content != null ? (path, content) : null;
-		}, "", new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+			normalized
+		};
+		return ParseWithIncludes(normalized, fileContents, visited);
 	}
 
-	public static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir)
+	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited)
 	{
-		return ParseWithIncludes(source, fileResolver, currentDir, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-	}
-
-	static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir, HashSet<string> visited)
-	{
+		if (!fileContents.TryGetValue(filePath, out var source))
+			source = "";
+		var dir = Path.GetDirectoryName(filePath) ?? "";
 		var parser = new SchemaParser(source);
 		var schema = parser.ParseRaw();
 
 		foreach (var include in schema.Includes)
 		{
-			var resolved = fileResolver(include, currentDir);
-			if (resolved == null)
+			var resolved = Path.Combine(dir, include.Replace('/', Path.DirectorySeparatorChar));
+			if (!visited.Add(resolved))
 				continue;
-			if (!visited.Add(resolved.Value.ResolvedPath))
+			if (!fileContents.ContainsKey(resolved))
 				continue;
-			var includeDir = System.IO.Path.GetDirectoryName(resolved.Value.ResolvedPath) ?? "";
-			var included = ParseWithIncludes(resolved.Value.Content, fileResolver, includeDir, visited);
+			var included = ParseWithIncludes(resolved, fileContents, visited);
 			schema.MergeFrom(included);
 		}
 
@@ -364,9 +363,9 @@ public sealed class SchemaParser
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		SkipMetadata();
-		Expect(TokenKind.LBrace);
 		var table = new TableDef { Name = name };
+		ParseTableMetadata(table);
+		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 			table.Fields.Add(ParseFieldDef());
 		Expect(TokenKind.RBrace);
@@ -377,13 +376,13 @@ public sealed class SchemaParser
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		SkipMetadata();
-		Expect(TokenKind.LBrace);
 		var s = new StructDef { Name = name };
+		ParseStructMetadata(s);
+		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 		{
 			var f = ParseFieldDef();
-			s.Fields.Add(new StructFieldDef { Name = f.Name, Type = f.Type });
+			s.Fields.Add(new StructFieldDef { Name = f.Name, Type = f.Type, ForceAlign = f.ForceAlign });
 		}
 		Expect(TokenKind.RBrace);
 		schema.Structs.Add(s);
@@ -464,10 +463,11 @@ public sealed class SchemaParser
 		schema.Unions.Add(u);
 	}
 
-	void ParseRpcService()
+	void ParseRpcService(Schema schema)
 	{
 		_pos++;
-		ExpectIdent(); // service name
+		var name = ExpectIdent().Text;
+		schema.Warnings.Add($"rpc_service '{name}' is not supported and will be ignored.");
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 		{
@@ -499,6 +499,51 @@ public sealed class SchemaParser
 		return field;
 	}
 
+	void ParseTableMetadata(TableDef table)
+	{
+		if (Peek().Kind != TokenKind.LParen)
+			return;
+		Expect(TokenKind.LParen);
+		while (Peek().Kind != TokenKind.RParen)
+		{
+			var attr = ExpectIdent().Text;
+			switch (attr)
+			{
+				case "original_order":
+					table.OriginalOrder = true;
+					break;
+				default:
+					if (Match(TokenKind.Colon))
+						Next();
+					break;
+			}
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		Expect(TokenKind.RParen);
+	}
+
+	void ParseStructMetadata(StructDef s)
+	{
+		if (Peek().Kind != TokenKind.LParen)
+			return;
+		Expect(TokenKind.LParen);
+		while (Peek().Kind != TokenKind.RParen)
+		{
+			var attr = ExpectIdent().Text;
+			if (attr == "force_align")
+			{
+				Expect(TokenKind.Colon);
+				s.ForceAlign = (int)ParseLongLiteral();
+			}
+			else if (Match(TokenKind.Colon))
+				Next();
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		Expect(TokenKind.RParen);
+	}
+
 	void ParseFieldMetadata(FieldDef field)
 	{
 		if (Peek().Kind != TokenKind.LParen)
@@ -507,10 +552,41 @@ public sealed class SchemaParser
 		while (Peek().Kind != TokenKind.RParen)
 		{
 			var attr = ExpectIdent().Text;
-			if (Match(TokenKind.Colon))
-				Next();
-			if (attr == "deprecated")
-				field.Deprecated = true;
+			switch (attr)
+			{
+				case "deprecated":
+					field.Deprecated = true;
+					break;
+				case "required":
+					field.Required = true;
+					break;
+				case "key":
+					field.IsKey = true;
+					break;
+				case "flexbuffer":
+					field.IsFlexBuffer = true;
+					break;
+				case "hash":
+					Expect(TokenKind.Colon);
+					field.HashAlgorithm = Expect(TokenKind.StringLit).Text;
+					break;
+				case "nested_flatbuffer":
+					Expect(TokenKind.Colon);
+					field.NestedFlatBufferType = Expect(TokenKind.StringLit).Text;
+					break;
+				case "force_align":
+					Expect(TokenKind.Colon);
+					field.ForceAlign = (int)ParseLongLiteral();
+					break;
+				case "id":
+					Expect(TokenKind.Colon);
+					field.Id = (int)ParseLongLiteral();
+					break;
+				default:
+					if (Match(TokenKind.Colon))
+						Next();
+					break;
+			}
 			if (!Match(TokenKind.Comma))
 				break;
 		}
@@ -602,15 +678,41 @@ public sealed class SchemaParser
 	{
 		foreach (var table in schema.Tables)
 		{
-			int slot = 0;
+			bool hasExplicitIds = false;
 			foreach (var f in table.Fields)
 			{
-				f.VTableOffset = 4 + slot * 2;
-				slot++;
-				if (f.Type.Base == SchemaBaseType.Union)
-					slot++; // union occupies two vtable slots: type byte + data offset
+				if (f.Id >= 0)
+				{
+					hasExplicitIds = true;
+					break;
+				}
 			}
-			table.SlotCount = slot;
+
+			if (hasExplicitIds)
+			{
+				int maxSlot = -1;
+				foreach (var f in table.Fields)
+				{
+					int slot = f.Id >= 0 ? f.Id : 0;
+					f.VTableOffset = 4 + slot * 2;
+					int top = f.Type.Base == SchemaBaseType.Union ? slot + 1 : slot;
+					if (top > maxSlot)
+						maxSlot = top;
+				}
+				table.SlotCount = maxSlot + 1;
+			}
+			else
+			{
+				int slot = 0;
+				foreach (var f in table.Fields)
+				{
+					f.VTableOffset = 4 + slot * 2;
+					slot++;
+					if (f.Type.Base == SchemaBaseType.Union)
+						slot++;
+				}
+				table.SlotCount = slot;
+			}
 		}
 	}
 
@@ -669,10 +771,12 @@ public sealed class SchemaParser
 		foreach (var s in schema.Structs)
 		{
 			int offset = 0;
-			int maxAlign = 1;
+			int maxAlign = s.ForceAlign > 0 ? s.ForceAlign : 1;
 			foreach (var f in s.Fields)
 			{
 				int size = FieldSize(f.Type, schema, out int align);
+				if (f.ForceAlign > 0)
+					align = f.ForceAlign;
 				if (align > maxAlign)
 					maxAlign = align;
 				offset = AlignUp(offset, align);

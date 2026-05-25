@@ -162,4 +162,18 @@ public ref struct FlatBufferBuilder
 	static void ThrowBufferTooSmall() => throw new InvalidOperationException("FlatBufferBuilder destination buffer is too small.");
 	static void ThrowBackwardOffset() => throw new InvalidOperationException("Referenced data must be created before the table/vector that references it.");
 	static void ThrowBadIdentifier() => throw new ArgumentException("File identifier must be exactly 4 bytes.");
+
+	public static int StringMaxSize(int utf8ByteCount) =>
+		utf8ByteCount <= 0 ? 0 : utf8ByteCount + 8;
+
+	public static int VectorMaxSize<T>(int count) where T : unmanaged
+	{
+		if (count <= 0) return 0;
+		int elt = Unsafe.SizeOf<T>();
+		int align = elt < 4 ? 4 : elt;
+		return count * elt + 4 + align - 1;
+	}
+
+	public static int VectorOfOffsetsMaxSize(int count) =>
+		count <= 0 ? 0 : count * 4 + 7;
 }

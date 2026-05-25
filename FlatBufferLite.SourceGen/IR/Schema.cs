@@ -22,6 +22,13 @@ public sealed class FieldDef
 	public TypeRef Type;
 	public string? DefaultValue;
 	public bool Deprecated;
+	public bool Required;
+	public bool IsKey;
+	public string? HashAlgorithm;
+	public string? NestedFlatBufferType;
+	public bool IsFlexBuffer;
+	public int ForceAlign;
+	public int Id = -1;
 	public int VTableOffset;
 	public int InlineOffset;
 	public int UnionDataInlineOffset;
@@ -31,6 +38,7 @@ public sealed class TableDef : ISchemaDef
 {
 	public string Name = "";
 	public List<FieldDef> Fields = new();
+	public bool OriginalOrder;
 	public int InlineSize;
 	public int InlineAlign;
 	public int SlotCount;
@@ -40,6 +48,7 @@ public sealed class StructFieldDef
 {
 	public string Name = "";
 	public TypeRef Type;
+	public int ForceAlign;
 	public int Offset;
 	public int Size;
 }
@@ -48,6 +57,7 @@ public sealed class StructDef : ISchemaDef
 {
 	public string Name = "";
 	public List<StructFieldDef> Fields = new();
+	public int ForceAlign;
 	public int Size;
 	public int Alignment;
 }
@@ -91,6 +101,7 @@ public sealed class Schema
 	public List<StructDef> Structs = new();
 	public List<EnumDef> Enums = new();
 	public List<UnionDef> Unions = new();
+	public List<string> Warnings = new();
 	public int LocalTableCount;
 	public int LocalStructCount;
 	public int LocalEnumCount;

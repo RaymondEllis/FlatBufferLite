@@ -154,6 +154,17 @@ public sealed class CodeEmitter
 		foreach (var m in u.Members)
 		{
 			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(m.TypeName).AppendLine(" value)");
+			_sb.AppendLine("\t{");
+			_sb.Append("\t\tvar u = default(").Append(u.Name).AppendLine(");");
+			_sb.Append("\t\tu.").Append(m.Name).AppendLine(" = value;");
+			_sb.Append("\t\tu.Tag = ").Append(m.Tag).AppendLine(";");
+			_sb.AppendLine("\t\tthis = u;");
+			_sb.AppendLine("\t}");
+		}
+		foreach (var m in u.Members)
+		{
+			_sb.AppendLine();
 			_sb.Append("\tpublic static ").Append(u.Name).Append(" From").Append(m.Name).Append('(').Append(m.TypeName).AppendLine(" value)");
 			_sb.AppendLine("\t{");
 			_sb.Append("\t\tvar u = default(").Append(u.Name).AppendLine(");");
@@ -178,12 +189,16 @@ public sealed class CodeEmitter
 	void EmitTableUnion(UnionDef u)
 	{
 		_sb.AppendLine();
-		_sb.Append("public readonly ref struct ").AppendLine(u.Name);
+		_sb.AppendLine("[Union]");
+		_sb.Append("public readonly ref struct ").Append(u.Name).AppendLine(" : IUnion");
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
 		_sb.AppendLine("\tpublic readonly byte Tag;");
 		_sb.Append("\tpublic ").Append(u.Name).AppendLine("(Span<byte> buffer, int position, byte tag) { _buf = buffer; _pos = position; Tag = tag; }");
+		foreach (var m in u.Members)
+			_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(m.TypeName).Append(" value) { _buf = value.Buffer; _pos = value.BufferPos; Tag = ").Append(m.Tag).AppendLine("; }");
+		_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"Boxing not supported. Use TryGetAs.\");");
 		_sb.AppendLine("\tpublic bool HasValue => Tag != 0 && _pos > 0;");
 		foreach (var m in u.Members)
 		{
@@ -201,12 +216,14 @@ public sealed class CodeEmitter
 	void EmitOpaqueUnion(UnionDef u)
 	{
 		_sb.AppendLine();
-		_sb.Append("public readonly ref struct ").AppendLine(u.Name);
+		_sb.AppendLine("[Union]");
+		_sb.Append("public readonly ref struct ").Append(u.Name).AppendLine(" : IUnion");
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
 		_sb.AppendLine("\tpublic readonly byte Tag;");
 		_sb.Append("\tpublic ").Append(u.Name).AppendLine("(Span<byte> buffer, int position, byte tag) { _buf = buffer; _pos = position; Tag = tag; }");
+		_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"Boxing not supported.\");");
 		_sb.AppendLine("\tpublic bool HasValue => Tag != 0 && _pos > 0;");
 		_sb.AppendLine("}");
 	}
@@ -223,6 +240,11 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic const int InlineSize = ").Append(t.InlineSize).AppendLine(";");
 		_sb.Append("\tpublic const int InlineAlign = ").Append(t.InlineAlign).AppendLine(";");
 
+		int maxSize = 2 * t.InlineAlign + 2 * t.SlotCount + t.InlineSize + 10;
+		_sb.Append("\tpublic const int TableMaxSize = ").Append(maxSize).AppendLine(";");
+		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
+		EmitGetMaxSize(t);
+
 		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
 
 		EmitReserveConstructor(t);
@@ -230,6 +252,7 @@ public sealed class CodeEmitter
 
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(Span<byte> buffer) => new ").Append(t.Name).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(ReadOnlySpan<byte> buffer) => new ").Append(t.Name).AppendLine("(MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in buffer[0]), buffer.Length), FlatBufferReader.GetRootOffset(buffer));");
+		_sb.AppendLine("\tpublic Span<byte> Buffer => _buf;");
 		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");
 
@@ -245,6 +268,55 @@ public sealed class CodeEmitter
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
+	}
+
+	void EmitGetMaxSize(TableDef t)
+	{
+		var refFields = new List<(string paramName, string sizeExpr)>();
+		foreach (var f in t.Fields)
+		{
+			if (f.Deprecated) continue;
+			string pname = ToCamelCase(f.Name);
+			if (f.Type.IsString)
+			{
+				refFields.Add((pname + "ByteCount", "FlatBufferBuilder.StringMaxSize(" + pname + "ByteCount)"));
+			}
+			else if (f.Type.IsVector)
+			{
+				var elt = f.Type.ElementBase;
+				if (elt.IsScalar())
+				{
+					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + elt.ToCSharpKeyword() + ">(" + pname + "Count)"));
+				}
+				else if (elt == SchemaBaseType.String || elt == SchemaBaseType.Union)
+				{
+					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
+				}
+				else if (elt == SchemaBaseType.Obj && f.Type.ReferencedName != null)
+				{
+					if (_schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
+					{
+						if (def is StructDef)
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + f.Type.ReferencedName + ">(" + pname + "Count)"));
+						else if (def is EnumDef ed)
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + ed.Underlying.ToCSharpKeyword() + ">(" + pname + "Count)"));
+						else
+							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
+					}
+				}
+			}
+		}
+
+		_sb.Append("\tpublic static int GetMaxSize(");
+		for (int i = 0; i < refFields.Count; i++)
+		{
+			if (i > 0) _sb.Append(", ");
+			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
+		}
+		_sb.Append(") => TableMaxSize");
+		foreach (var (_, sizeExpr) in refFields)
+			_sb.Append(" + ").Append(sizeExpr);
+		_sb.AppendLine(";");
 	}
 
 	void EmitReserveConstructor(TableDef t)
@@ -395,14 +467,20 @@ public sealed class CodeEmitter
 		}
 		if (f.Type.IsString || f.Type.IsVector)
 		{
-			_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+			if (f.Required)
+				_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+			else
+				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 			return;
 		}
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
 		{
 			if (def is TableDef)
 			{
-				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				if (f.Required)
+					_sb.Append("\t\tVtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+				else
+					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
 				return;
 			}
 			if (def is StructDef)
@@ -509,6 +587,8 @@ public sealed class CodeEmitter
 		{
 			string cs = elt.ToCSharpKeyword();
 			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType))
+				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append(' ').Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append(".GetRootAs(").Append(propName).AppendLine(".AsSpan);");
 			return;
 		}
 		if (elt == SchemaBaseType.String)
@@ -559,7 +639,68 @@ public sealed class CodeEmitter
 		_sb.Append("\t\t\treturn new ").Append(t.Name).AppendLine("(_buf, elt + (int)FlatBufferReader.ReadUnaligned<uint>(_buf, elt));");
 		_sb.AppendLine("\t\t}");
 		_sb.AppendLine("\t}");
+
+		FieldDef? keyField = null;
+		foreach (var f in t.Fields)
+		{
+			if (!f.Deprecated && f.IsKey)
+			{
+				keyField = f;
+				break;
+			}
+		}
+
+		if (keyField != null)
+			EmitLookupByKey(t, keyField);
+
 		_sb.AppendLine("}");
+	}
+
+	void EmitLookupByKey(TableDef t, FieldDef keyField)
+	{
+		string propName = ToPascalCase(keyField.Name);
+
+		if (keyField.Type.IsString)
+		{
+			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(t.Name).AppendLine(" LookupByKey(ReadOnlySpan<byte> key)");
+			_sb.AppendLine("\t{");
+			_sb.AppendLine("\t\tint lo = 0, hi = Length - 1;");
+			_sb.AppendLine("\t\twhile (lo <= hi)");
+			_sb.AppendLine("\t\t{");
+			_sb.AppendLine("\t\t\tint mid = (lo + hi) >> 1;");
+			_sb.Append("\t\t\tvar entry = this[mid];");
+			_sb.AppendLine();
+			_sb.Append("\t\t\tint cmp = entry.").Append(propName).AppendLine(".AsBytes.SequenceCompareTo(key);");
+			_sb.AppendLine("\t\t\tif (cmp == 0) return entry;");
+			_sb.AppendLine("\t\t\tif (cmp < 0) lo = mid + 1; else hi = mid - 1;");
+			_sb.AppendLine("\t\t}");
+			_sb.Append("\t\treturn default;");
+			_sb.AppendLine();
+			_sb.AppendLine("\t}");
+			return;
+		}
+
+		if (keyField.Type.Base.IsScalar())
+		{
+			string cs = ScalarCSharpType(keyField.Type, out string defLit);
+			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(t.Name).Append(" LookupByKey(").Append(cs).AppendLine(" key)");
+			_sb.AppendLine("\t{");
+			_sb.AppendLine("\t\tint lo = 0, hi = Length - 1;");
+			_sb.AppendLine("\t\twhile (lo <= hi)");
+			_sb.AppendLine("\t\t{");
+			_sb.AppendLine("\t\t\tint mid = (lo + hi) >> 1;");
+			_sb.Append("\t\t\tvar entry = this[mid];");
+			_sb.AppendLine();
+			_sb.Append("\t\t\tvar k = entry.").Append(propName).AppendLine(";");
+			_sb.AppendLine("\t\t\tif (k == key) return entry;");
+			_sb.AppendLine("\t\t\tif (k < key) lo = mid + 1; else hi = mid - 1;");
+			_sb.AppendLine("\t\t}");
+			_sb.Append("\t\treturn default;");
+			_sb.AppendLine();
+			_sb.AppendLine("\t}");
+		}
 	}
 
 	static string ScalarCSharpType(TypeRef type, out string defaultLiteral)
