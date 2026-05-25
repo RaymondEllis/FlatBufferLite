@@ -7,9 +7,9 @@ public static class FlatBufferReader
 	public const int FileIdentifierLength = 4;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static unsafe T ReadUnaligned<T>(ReadOnlySpan<byte> buffer, int offset) where T : unmanaged
+	public static T ReadUnaligned<T>(ReadOnlySpan<byte> buffer, int offset) where T : unmanaged
 	{
-		if ((uint)offset + (uint)sizeof(T) > (uint)buffer.Length)
+		if ((uint)offset + (uint)Unsafe.SizeOf<T>() > (uint)buffer.Length)
 			ThrowOutOfRange();
 		return Unsafe.ReadUnaligned<T>(ref Unsafe.AsRef(in buffer[offset]));
 	}

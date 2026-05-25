@@ -35,14 +35,20 @@ public readonly ref struct FlatVector<T> where T : unmanaged
 			if (Position <= 0)
 				return ReadOnlySpan<T>.Empty;
 			int len = (int)FlatBufferReader.ReadUnaligned<uint>(Buffer, Position);
-			return MemoryMarshal.Cast<byte, T>(Buffer.Slice(Position + 4, len * Unsafe.SizeOf<T>()));
+			int byteLen = checked(len * Unsafe.SizeOf<T>());
+			return MemoryMarshal.Cast<byte, T>(Buffer.Slice(Position + 4, byteLen));
 		}
 	}
 
 	public T this[int index]
 	{
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		get => FlatBufferReader.ReadUnaligned<T>(Buffer, Position + 4 + index * Unsafe.SizeOf<T>());
+		get
+		{
+			System.Diagnostics.Debug.Assert(index >= 0);
+			System.Diagnostics.Debug.Assert((uint)index < (uint)Length);
+			return FlatBufferReader.ReadUnaligned<T>(Buffer, Position + 4 + index * Unsafe.SizeOf<T>());
+		}
 	}
 }
 
@@ -75,6 +81,8 @@ public readonly ref struct FlatStringVector
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get
 		{
+			System.Diagnostics.Debug.Assert(index >= 0);
+			System.Diagnostics.Debug.Assert((uint)index < (uint)Length);
 			int eltOff = Position + 4 + index * 4;
 			int strOff = eltOff + (int)FlatBufferReader.ReadUnaligned<uint>(Buffer, eltOff);
 			return new FlatString(Buffer, strOff);

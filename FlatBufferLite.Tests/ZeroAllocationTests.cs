@@ -10,10 +10,10 @@ public class ZeroAllocationTests
 		var buf = new byte[256];
 		var b = new FlatBufferBuilder(buf);
 		int tp = b.StartTable(4, 16, 4);
-		Vtable.Write<int>(b.Buffer, tp, 4, 4, 1, 0);
-		Vtable.Write<int>(b.Buffer, tp, 6, 8, 2, 0);
-		Vtable.Write<int>(b.Buffer, tp, 8, 12, 3, 0);
-		Vtable.Write<int>(b.Buffer, tp, 10, 16, 4, 0);
+		Vtable.Write<int>(buf, tp, 4, 4, 1, 0);
+		Vtable.Write<int>(buf, tp, 6, 8, 2, 0);
+		Vtable.Write<int>(buf, tp, 8, 12, 3, 0);
+		Vtable.Write<int>(buf, tp, 10, 16, 4, 0);
 		b.MarkRoot(tp);
 		return b.Finish().ToArray();
 	}
@@ -50,7 +50,7 @@ public class ZeroAllocationTests
 		var b = new FlatBufferBuilder(raw);
 		int vec = b.CreateVector<int>(data);
 		int tp = b.StartTable(1, 4, 4);
-		Vtable.WriteOffset(b.Buffer, tp, 4, 4, vec);
+		Vtable.WriteOffset(raw, tp, 4, 4, vec);
 		b.MarkRoot(tp);
 		var bytes = b.Finish().ToArray();
 
@@ -76,7 +76,7 @@ public class ZeroAllocationTests
 		var b = new FlatBufferBuilder(raw);
 		int s = b.CreateString("performance"u8);
 		int tp = b.StartTable(1, 4, 4);
-		Vtable.WriteOffset(b.Buffer, tp, 4, 4, s);
+		Vtable.WriteOffset(raw, tp, 4, 4, s);
 		b.MarkRoot(tp);
 		var bytes = b.Finish().ToArray();
 
@@ -120,9 +120,9 @@ public class ZeroAllocationTests
 			int s = b.CreateString(name);
 			int v = b.CreateVector<int>(data);
 			int tp = b.StartTable(3, 12, 4);
-			Vtable.Write<int>(b.Buffer, tp, 4, 4, 7, 0);
-			Vtable.WriteOffset(b.Buffer, tp, 6, 8, s);
-			Vtable.WriteOffset(b.Buffer, tp, 8, 12, v);
+			Vtable.Write<int>(buf, tp, 4, 4, 7, 0);
+			Vtable.WriteOffset(buf, tp, 6, 8, s);
+			Vtable.WriteOffset(buf, tp, 8, 12, v);
 		}
 	}
 

@@ -463,7 +463,7 @@ public class SourceGenFeatureTests
 		var outer = FlatBufferLite.Attr.Inner.Create(ref b, value: 0);
 		_ = b.Finish();
 
-		var v = new FlatBufferLite.Attr.EntryVector(b.Buffer, vec);
+		var v = new FlatBufferLite.Attr.EntryVector(buf, vec);
 		Assert.Equal(3, v.Length);
 
 		var found = v.LookupByKey(20);

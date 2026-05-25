@@ -324,7 +324,7 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic static ").Append(t.Name).AppendLine(" Create(ref FlatBufferBuilder builder)");
 		_sb.AppendLine("\t{");
 		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
+		_sb.AppendLine("\t\tvar __buf = builder.GetWritableBuffer();");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -361,7 +361,7 @@ public sealed class CodeEmitter
 				return;
 			if (def is StructDef)
 			{
-				_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
 				return;
 			}
 			if (def is EnumDef ed)
@@ -394,7 +394,7 @@ public sealed class CodeEmitter
 		_sb.AppendLine(")");
 		_sb.AppendLine("\t{");
 		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
+		_sb.AppendLine("\t\tvar __buf = builder.GetWritableBuffer();");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -487,7 +487,7 @@ public sealed class CodeEmitter
 			}
 			if (def is StructDef)
 			{
-				_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteStruct<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
 				return;
 			}
 			if (def is EnumDef ed)
@@ -534,7 +534,7 @@ public sealed class CodeEmitter
 				{
 					_sb.Append("\tpublic ").Append(name).Append(' ').Append(propName)
 						.Append(" { get => Vtable.StructOffset(_buf, _pos, ").Append(vto).Append(") is var o && o == 0 ? default : FlatBufferReader.ReadUnaligned<").Append(name).Append(">(_buf, o);")
-						.Append(" set => Vtable.WriteStruct<").Append(name).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in value); }");
+						.Append(" set => Vtable.WriteForced<").Append(name).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in value); }");
 					return;
 				}
 				if (def is EnumDef ed)

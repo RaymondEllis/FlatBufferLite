@@ -18,11 +18,11 @@ public ref struct FlatBufferBuilder
 		_minAlign = 1;
 	}
 
-	public readonly Span<byte> Buffer
-	{
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		get => _buf;
-	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public readonly ReadOnlySpan<byte> AsSpan() => _buf.Slice(_space);
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public readonly Span<byte> GetWritableBuffer() => _buf;
 
 	public readonly int Length
 	{
@@ -68,14 +68,17 @@ public ref struct FlatBufferBuilder
 		int needed = padding + upcomingBytes;
 		if (_space < needed)
 			ThrowBufferTooSmall();
-		while (padding-- > 0)
-			_buf[--_space] = 0;
+		if (padding > 0)
+		{
+			_space -= padding;
+			_buf.Slice(_space, padding).Clear();
+		}
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	unsafe void PutUnaligned<T>(T value) where T : unmanaged
+	void PutUnaligned<T>(T value) where T : unmanaged
 	{
-		_space -= sizeof(T);
+		_space -= Unsafe.SizeOf<T>();
 		Unsafe.WriteUnaligned(ref _buf[_space], value);
 	}
 
@@ -163,17 +166,26 @@ public ref struct FlatBufferBuilder
 	static void ThrowBackwardOffset() => throw new InvalidOperationException("Referenced data must be created before the table/vector that references it.");
 	static void ThrowBadIdentifier() => throw new ArgumentException("File identifier must be exactly 4 bytes.");
 
-	public static int StringMaxSize(int utf8ByteCount) =>
-		utf8ByteCount <= 0 ? 0 : utf8ByteCount + 8;
+	public static int StringMaxSize(int utf8ByteCount)
+	{
+		if (utf8ByteCount < 0)
+			utf8ByteCount = 0;
+		return utf8ByteCount + 8;
+	}
 
 	public static int VectorMaxSize<T>(int count) where T : unmanaged
 	{
-		if (count <= 0) return 0;
+		if (count < 0)
+			count = 0;
 		int elt = Unsafe.SizeOf<T>();
 		int align = elt < 4 ? 4 : elt;
 		return count * elt + 4 + align - 1;
 	}
 
-	public static int VectorOfOffsetsMaxSize(int count) =>
-		count <= 0 ? 0 : count * 4 + 7;
+	public static int VectorOfOffsetsMaxSize(int count)
+	{
+		if (count < 0)
+			count = 0;
+		return count * 4 + 7;
+	}
 }
