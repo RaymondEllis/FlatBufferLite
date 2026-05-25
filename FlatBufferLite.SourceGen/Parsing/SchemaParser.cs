@@ -2,6 +2,7 @@ using FlatBufferLite.SourceGen.IR;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace FlatBufferLite.SourceGen.Parsing;
@@ -301,34 +302,32 @@ public sealed class SchemaParser
 		return schema;
 	}
 
-	public static Schema ParseWithIncludes(string source, Func<string, string?> fileResolver)
+	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents)
 	{
-		return ParseWithIncludes(source, (path, _) =>
+		var normalized = entryFilePath.Replace('/', Path.DirectorySeparatorChar);
+		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 		{
-			var content = fileResolver(path);
-			return content != null ? (path, content) : null;
-		}, "", new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+			normalized
+		};
+		return ParseWithIncludes(normalized, fileContents, visited);
 	}
 
-	public static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir)
+	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited)
 	{
-		return ParseWithIncludes(source, fileResolver, currentDir, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-	}
-
-	static Schema ParseWithIncludes(string source, Func<string, string, (string ResolvedPath, string Content)?> fileResolver, string currentDir, HashSet<string> visited)
-	{
+		if (!fileContents.TryGetValue(filePath, out var source))
+			source = "";
+		var dir = Path.GetDirectoryName(filePath) ?? "";
 		var parser = new SchemaParser(source);
 		var schema = parser.ParseRaw();
 
 		foreach (var include in schema.Includes)
 		{
-			var resolved = fileResolver(include, currentDir);
-			if (resolved == null)
+			var resolved = Path.Combine(dir, include.Replace('/', Path.DirectorySeparatorChar));
+			if (!visited.Add(resolved))
 				continue;
-			if (!visited.Add(resolved.Value.ResolvedPath))
+			if (!fileContents.ContainsKey(resolved))
 				continue;
-			var includeDir = System.IO.Path.GetDirectoryName(resolved.Value.ResolvedPath) ?? "";
-			var included = ParseWithIncludes(resolved.Value.Content, fileResolver, includeDir, visited);
+			var included = ParseWithIncludes(resolved, fileContents, visited);
 			schema.MergeFrom(included);
 		}
 

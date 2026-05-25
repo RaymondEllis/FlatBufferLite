@@ -1,5 +1,7 @@
 using FlatBufferLite.SourceGen.IR;
 using FlatBufferLite.SourceGen.Parsing;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace FlatBufferLite.Tests;
@@ -24,22 +26,21 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void IncludeDirective_ResolvesTypeFromIncludedFile()
 	{
-		var sharedSource = """
-			namespace Shared;
-			struct Vector3I { x: int; y: int; z: int; }
-			""";
-		var mainSource = """
-			include "shared.fbs";
-			namespace Main;
-			table Chunk { pos: Vector3I; }
-			root_type Chunk;
-			""";
-
-		var schema = SchemaParser.ParseWithIncludes(mainSource, path =>
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 		{
-			if (path == "shared.fbs") return sharedSource;
-			return null;
-		});
+			[Path.Combine("test", "shared.fbs")] = """
+				namespace Shared;
+				struct Vector3I { x: int; y: int; z: int; }
+				""",
+			[Path.Combine("test", "main.fbs")] = """
+				include "shared.fbs";
+				namespace Main;
+				table Chunk { pos: Vector3I; }
+				root_type Chunk;
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "main.fbs"), files);
 
 		Assert.Contains("Vector3I", schema.ByName.Keys);
 		Assert.IsType<StructDef>(schema.ByName["Vector3I"]);
@@ -54,25 +55,23 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void IncludeDirective_TransitiveIncludes()
 	{
-		var baseSource = """
-			struct Vec2 { x: float; y: float; }
-			""";
-		var midSource = """
-			include "base.fbs";
-			struct Vec3 { x: float; y: float; z: float; }
-			""";
-		var topSource = """
-			include "mid.fbs";
-			table Thing { pos: Vec3; vel: Vec2; }
-			root_type Thing;
-			""";
-
-		var schema = SchemaParser.ParseWithIncludes(topSource, path => path switch
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 		{
-			"mid.fbs" => midSource,
-			"base.fbs" => baseSource,
-			_ => null,
-		});
+			[Path.Combine("test", "base.fbs")] = """
+				struct Vec2 { x: float; y: float; }
+				""",
+			[Path.Combine("test", "mid.fbs")] = """
+				include "base.fbs";
+				struct Vec3 { x: float; y: float; z: float; }
+				""",
+			[Path.Combine("test", "top.fbs")] = """
+				include "mid.fbs";
+				table Thing { pos: Vec3; vel: Vec2; }
+				root_type Thing;
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "top.fbs"), files);
 
 		Assert.Contains("Vec2", schema.ByName.Keys);
 		Assert.Contains("Vec3", schema.ByName.Keys);
@@ -82,21 +81,19 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void IncludeDirective_CircularIncludesDoNotLoop()
 	{
-		var aSource = """
-			include "b.fbs";
-			struct A { x: int; }
-			""";
-		var bSource = """
-			include "a.fbs";
-			struct B { y: int; }
-			""";
-
-		var schema = SchemaParser.ParseWithIncludes(aSource, path => path switch
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 		{
-			"b.fbs" => bSource,
-			"a.fbs" => aSource,
-			_ => null,
-		});
+			[Path.Combine("test", "a.fbs")] = """
+				include "b.fbs";
+				struct A { x: int; }
+				""",
+			[Path.Combine("test", "b.fbs")] = """
+				include "a.fbs";
+				struct B { y: int; }
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "a.fbs"), files);
 
 		Assert.Contains("A", schema.ByName.Keys);
 		Assert.Contains("B", schema.ByName.Keys);
@@ -105,45 +102,39 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void IncludeDirective_UnresolvedIncludeDoesNotThrow()
 	{
-		var source = """
-			include "missing.fbs";
-			table Foo { x: int; }
-			root_type Foo;
-			""";
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[Path.Combine("test", "main.fbs")] = """
+				include "missing.fbs";
+				table Foo { x: int; }
+				root_type Foo;
+				""",
+		};
 
-		var schema = SchemaParser.ParseWithIncludes(source, _ => null);
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "main.fbs"), files);
 		Assert.Single(schema.Tables);
 	}
 
 	[Fact]
 	public void IncludeDirective_ResolvesRelativeToIncludingFile()
 	{
-		var libSource = """
-			struct Color { r: ubyte; g: ubyte; b: ubyte; }
-			""";
-		var midSource = """
-			include "color.fbs";
-			struct Material { diffuse: Color; }
-			""";
-		var topSource = """
-			include "sub/mid.fbs";
-			table Mesh { mat: Material; }
-			root_type Mesh;
-			""";
-
-		var files = new Dictionary<string, string>
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 		{
-			["/project/sub/mid.fbs"] = midSource,
-			["/project/sub/color.fbs"] = libSource,
+			[Path.Combine("test", "sub", "color.fbs")] = """
+				struct Color { r: ubyte; g: ubyte; b: ubyte; }
+				""",
+			[Path.Combine("test", "sub", "mid.fbs")] = """
+				include "color.fbs";
+				struct Material { diffuse: Color; }
+				""",
+			[Path.Combine("test", "top.fbs")] = """
+				include "sub/mid.fbs";
+				table Mesh { mat: Material; }
+				root_type Mesh;
+				""",
 		};
 
-		var schema = SchemaParser.ParseWithIncludes(topSource, (includePath, includingDir) =>
-		{
-			var resolved = System.IO.Path.Combine(includingDir, includePath);
-			if (files.TryGetValue(resolved, out var content))
-				return (resolved, content);
-			return null;
-		}, "/project");
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "top.fbs"), files);
 
 		Assert.Contains("Color", schema.ByName.Keys);
 		Assert.Contains("Material", schema.ByName.Keys);
@@ -360,8 +351,8 @@ public class SourceGenFeatureTests
 		var b = new FlatBufferBuilder(buf);
 		new FlatBufferLite.Sample.Player(ref b, id: 1, hp: 50);
 		var span = b.AsSpan();
-		var player = FlatBufferLite.Sample.Player.GetRootAs(span);
-		Assert.True(FlatBufferLite.Sample.Player.TableMaxSize >= player.GetSize());
+		var player = Sample.Player.GetRootAs(span);
+		Assert.True(Sample.Player.TableMaxSize >= player.GetSize());
 	}
 
 	[Fact]
@@ -369,7 +360,7 @@ public class SourceGenFeatureTests
 	{
 		const int nameBytes = 5;
 		const int invCount = 3;
-		int needed = FlatBufferLite.Sample.Player.GetMaxSize(nameByteCount: nameBytes, inventoryCount: invCount);
+		int needed = Sample.Player.GetMaxSize(nameByteCount: nameBytes, inventoryCount: invCount);
 		var buf = new byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		int name = b.CreateString("Alice"u8);
@@ -533,11 +524,11 @@ public class SourceGenFeatureTests
 
 		Span<byte> outerBuf = stackalloc byte[512];
 		var ob = new FlatBufferBuilder(outerBuf);
-		int blob = ob.CreateVector<byte>(System.Runtime.InteropServices.MemoryMarshal.Cast<byte, byte>(innerBytes));
+		int blob = ob.CreateVector<byte>(MemoryMarshal.Cast<byte, byte>(innerBytes));
 		var outer = new FlatBufferLite.Attr.Outer(ref ob, blob: blob);
 		var outerBytes = ob.AsSpan();
 
-		var o = FlatBufferLite.Attr.Outer.GetRootAs(outerBytes);
+		var o = Attr.Outer.GetRootAs(outerBytes);
 		var nested = o.BlobNested;
 		Assert.True(nested.IsValid);
 		Assert.Equal(42, nested.Value);

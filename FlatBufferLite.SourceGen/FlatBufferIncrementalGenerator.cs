@@ -19,36 +19,19 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 
 		context.RegisterSourceOutput(fbsFiles, (spc, files) =>
 		{
-			var fileMap = new Dictionary<string, (string Path, string Text)>(System.StringComparer.OrdinalIgnoreCase);
-			foreach (var at in files)
+			var fileContents = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+			foreach (var f in files)
 			{
-				var text = at.GetText(spc.CancellationToken)?.ToString() ?? string.Empty;
-				fileMap[at.Path] = (at.Path, text);
-				var fileName = Path.GetFileName(at.Path);
-				if (!fileMap.ContainsKey(fileName))
-					fileMap[fileName] = (at.Path, text);
+				var text = f.GetText()?.ToString();
+				if (text != null)
+					fileContents[f.Path] = text;
 			}
 
 			foreach (var at in files)
 			{
 				try
 				{
-					var text = fileMap[at.Path].Text;
-					var dir = Path.GetDirectoryName(at.Path) ?? "";
-					(string, string)? Resolver(string includePath, string includingDir)
-					{
-						var relative = Path.Combine(includingDir, includePath);
-						if (fileMap.TryGetValue(relative, out var found))
-							return (found.Path, found.Text);
-						if (fileMap.TryGetValue(includePath, out found))
-							return (found.Path, found.Text);
-						var normalized = Path.GetFullPath(relative);
-						if (fileMap.TryGetValue(normalized, out found))
-							return (found.Path, found.Text);
-						return null;
-					}
-
-					var schema = SchemaParser.ParseWithIncludes(text, Resolver, dir);
+					var schema = SchemaParser.ParseWithIncludes(at.Path, fileContents);
 					foreach (var w in schema.Warnings)
 						spc.ReportDiagnostic(Diagnostic.Create(
 							new DiagnosticDescriptor("FBL003", "FlatBuffer unsupported feature", w, "FlatBufferLite", DiagnosticSeverity.Warning, isEnabledByDefault: true),
