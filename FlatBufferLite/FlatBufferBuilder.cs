@@ -98,7 +98,7 @@ public ref struct FlatBufferBuilder
 		return tablePos;
 	}
 
-	public int CreateString(ReadOnlySpan<byte> utf8Bytes)
+	public StringOffset CreateString(ReadOnlySpan<byte> utf8Bytes)
 	{
 		int byteCount = utf8Bytes.Length;
 		Align(4, byteCount + 1 + 4);
@@ -106,10 +106,10 @@ public ref struct FlatBufferBuilder
 		_space -= byteCount;
 		utf8Bytes.CopyTo(_buf.Slice(_space, byteCount));
 		PutUnaligned(byteCount);
-		return _space;
+		return new StringOffset(_space);
 	}
 
-	public int CreateVector<T>(ReadOnlySpan<T> values) where T : unmanaged
+	public VectorOffset CreateVector<T>(ReadOnlySpan<T> values) where T : unmanaged
 	{
 		int elt = Unsafe.SizeOf<T>();
 		int bytes = values.Length * elt;
@@ -118,10 +118,10 @@ public ref struct FlatBufferBuilder
 		_space -= bytes;
 		MemoryMarshal.AsBytes(values).CopyTo(_buf.Slice(_space, bytes));
 		PutUnaligned(values.Length);
-		return _space;
+		return new VectorOffset(_space);
 	}
 
-	public int CreateVectorOfOffsets(ReadOnlySpan<int> offsets)
+	public VectorOffset CreateVectorOfOffsets(ReadOnlySpan<int> offsets)
 	{
 		int bytes = offsets.Length * 4;
 		Align(4, bytes + 4);
@@ -135,7 +135,24 @@ public ref struct FlatBufferBuilder
 			Unsafe.WriteUnaligned(ref _buf[_space], v);
 		}
 		PutUnaligned(offsets.Length);
-		return _space;
+		return new VectorOffset(_space);
+	}
+
+	public VectorOffset CreateVectorOfOffsets<T>(ReadOnlySpan<Offset<T>> offsets) where T : allows ref struct
+	{
+		int bytes = offsets.Length * 4;
+		Align(4, bytes + 4);
+		for (int i = offsets.Length - 1; i >= 0; i--)
+		{
+			int slotPos = _space - 4;
+			int v = offsets[i].Value - slotPos;
+			if (v <= 0)
+				throw new InvalidOperationException($"Offset data[{offsets[i].Value}] must be created before the vector slot at {slotPos}.");
+			_space = slotPos;
+			Unsafe.WriteUnaligned(ref _buf[_space], v);
+		}
+		PutUnaligned(offsets.Length);
+		return new VectorOffset(_space);
 	}
 
 	void WriteRoot(int rootTablePos)

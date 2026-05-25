@@ -9,7 +9,7 @@ public class MultiRootTests
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
-		int name = b.CreateString("region1"u8);
+		var name = b.CreateString("region1"u8);
 		var region = RegionData.Create(ref b, id: 1, name: name);
 
 		var span = b.Finish();

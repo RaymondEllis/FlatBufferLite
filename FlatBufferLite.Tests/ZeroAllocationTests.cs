@@ -183,7 +183,7 @@ public class ZeroAllocationTests
 		static void Round(Span<byte> buf)
 		{
 			var b = new FlatBufferBuilder(buf);
-			int name = b.CreateString("Alice"u8);
+			var name = b.CreateString("Alice"u8);
 			Player.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f });
 
 			var span = b.Finish();

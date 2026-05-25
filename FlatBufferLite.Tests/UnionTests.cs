@@ -121,7 +121,7 @@ public class UnionTests
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
 
-		int sceneName = b.CreateString("scene-rect"u8);
+		var sceneName = b.CreateString("scene-rect"u8);
 
 		var rectB = Rect.Create(ref b, w: 3.0f, h: 7.0f);
 		Scene.Create(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);

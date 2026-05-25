@@ -86,10 +86,10 @@ public class AllTypesTests
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
 
-		int hello = b.CreateString("hello world"u8);
+		var hello = b.CreateString("hello world"u8);
 
 		var score = Score.Create(ref b, value: 42L);
-		var rb = Refs.Create(ref b, strVal: hello, scoreVal: score.BufferPos, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
+		var rb = Refs.Create(ref b, strVal: hello, scoreVal: score.AsOffset, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
 		rb.MarkAsRoot(ref b);
 		var span = b.Finish();
 		var r = Refs.GetRootAs(span);
@@ -127,10 +127,10 @@ public class AllTypesTests
 
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
-		int iv = b.CreateVector(ints);
-		int bv = b.CreateVector(bytes);
-		int fv = b.CreateVector(floats);
-		int lv = b.CreateVector(longs);
+		var iv = b.CreateVector(ints);
+		var bv = b.CreateVector(bytes);
+		var fv = b.CreateVector(floats);
+		var lv = b.CreateVector(longs);
 
 		var vb = Vectors.Create(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
 		var v = new Vectors(buf, vb.BufferPos);
@@ -163,7 +163,7 @@ public class AllTypesTests
 		int s1 = b.CreateString("beta"u8);
 		int s2 = b.CreateString("gamma"u8);
 		ReadOnlySpan<int> offsets = stackalloc int[] { s0, s1, s2 };
-		int strVec = b.CreateVectorOfOffsets(offsets);
+		var strVec = b.CreateVectorOfOffsets(offsets);
 
 		var vb = Vectors.Create(ref b, strVec: strVec);
 		var fv = new Vectors(buf, vb.BufferPos).StrVec;
@@ -185,7 +185,7 @@ public class AllTypesTests
 		};
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
-		int vv = b.CreateVector(vecs);
+		var vv = b.CreateVector(vecs);
 
 		var vb = Vectors.Create(ref b, vec2Vec: vv);
 		var fv = new Vectors(buf, vb.BufferPos).Vec2Vec;
@@ -202,7 +202,7 @@ public class AllTypesTests
 	{
 		Span<byte> buf = stackalloc byte[128];
 		var b = new FlatBufferBuilder(buf);
-		int empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
+		var empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
 		var vb = Vectors.Create(ref b, intVec: empty);
 		var fv = new Vectors(buf, vb.BufferPos).IntVec;
 
@@ -258,8 +258,8 @@ public class AllTypesTests
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
 
-		int myCircle = b.CreateString("my-circle"u8);
-		int afterUnion = b.CreateString("after-union"u8);
+		var myCircle = b.CreateString("my-circle"u8);
+		var afterUnion = b.CreateString("after-union"u8);
 
 		var cb = Circle.Create(ref b, radius: 5.0f);
 		var wu = WithUnion.Create(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: afterUnion);
@@ -282,7 +282,7 @@ public class AllTypesTests
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
 
-		int nameOff = b.CreateString("my-rect"u8);
+		var nameOff = b.CreateString("my-rect"u8);
 
 		var rb = Rectangle.Create(ref b, width: 3.0f, height: 7.5f);
 		var wu = WithUnion.Create(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.BufferPos);
@@ -314,7 +314,7 @@ public class AllTypesTests
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
 
-		int sentinel = b.CreateString("sentinel"u8);
+		var sentinel = b.CreateString("sentinel"u8);
 
 		var cb = Circle.Create(ref b, radius: 1.0f);
 		var wu = WithUnion.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: sentinel);

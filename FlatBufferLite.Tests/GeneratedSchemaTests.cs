@@ -26,8 +26,8 @@ public class GeneratedSchemaTests
 		Span<byte> buf = stackalloc byte[512];
 		var b = new FlatBufferBuilder(buf);
 
-		int name = b.CreateString("Alice"u8);
-		int invOff = b.CreateVector<int>(inv);
+		var name = b.CreateString("Alice"u8);
+		var invOff = b.CreateVector<int>(inv);
 
 		var pb = Player.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, inventory: invOff);
 

@@ -257,6 +257,7 @@ public sealed class CodeEmitter
 		_sb.AppendLine("\tpublic Span<byte> Buffer => _buf;");
 		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");
+		_sb.Append("\tpublic Offset<").Append(t.Name).Append("> AsOffset => new Offset<").Append(t.Name).AppendLine(">(_pos);");
 
 		foreach (var f in t.Fields)
 		{
@@ -413,12 +414,14 @@ public sealed class CodeEmitter
 	{
 		if (f.Type.Base.IsScalar())
 			return ScalarCSharpType(f.Type, out _);
-		if (f.Type.IsString || f.Type.IsVector)
-			return "int";
+		if (f.Type.IsString)
+			return "StringOffset";
+		if (f.Type.IsVector)
+			return "VectorOffset";
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
 		{
 			if (def is TableDef)
-				return "int";
+				return "Offset<" + f.Type.ReferencedName + ">";
 			if (def is StructDef)
 				return f.Type.ReferencedName;
 			if (def is EnumDef)
@@ -435,11 +438,11 @@ public sealed class CodeEmitter
 			return !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defLit;
 		}
 		if (f.Type.IsString || f.Type.IsVector)
-			return "0";
+			return "default";
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
 		{
 			if (def is TableDef)
-				return "0";
+				return "default";
 			if (def is StructDef)
 				return "default";
 			if (def is EnumDef ed2)
