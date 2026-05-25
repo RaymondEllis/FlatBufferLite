@@ -254,7 +254,6 @@ public sealed class CodeEmitter
 		EmitBuildConstructor(t);
 
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(Span<byte> buffer) => new ").Append(t.Name).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
-		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(ReadOnlySpan<byte> buffer) => new ").Append(t.Name).AppendLine("(MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in buffer[0]), buffer.Length), FlatBufferReader.GetRootOffset(buffer));");
 		_sb.AppendLine("\tpublic Span<byte> Buffer => _buf;");
 		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");

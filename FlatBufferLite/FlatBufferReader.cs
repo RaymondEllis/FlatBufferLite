@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace FlatBufferLite;
 
@@ -15,7 +16,7 @@ public static class FlatBufferReader
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static int GetRootOffset(ReadOnlySpan<byte> buffer) => (int)ReadUnaligned<uint>(buffer, 0);
+	public static int GetRootOffset(ReadOnlySpan<byte> buffer) => (int)MemoryMarshal.Read<uint>(buffer);
 
 	public static bool HasIdentifier(ReadOnlySpan<byte> buffer, ReadOnlySpan<byte> identifier)
 	{

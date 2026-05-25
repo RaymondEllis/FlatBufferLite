@@ -70,7 +70,7 @@ public class ZeroAllocationTests
 		long sum = 0;
 		for (int i = 0; i < 5_000; i++)
 		{
-			ReadOnlySpan<byte> span = bytes;
+			Span<byte> span = bytes;
 			int pos = FlatBufferReader.GetRootOffset(span);
 			var v = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 4));
 			var s = v.AsSpan;
@@ -83,7 +83,7 @@ public class ZeroAllocationTests
 		[MethodImpl(MethodImplOptions.NoInlining)]
 		static void WarmVector(byte[] bytes)
 		{
-			ReadOnlySpan<byte> span = bytes;
+			Span<byte> span = bytes;
 			int pos = FlatBufferReader.GetRootOffset(span);
 			var v = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 4));
 			_ = v.AsSpan;

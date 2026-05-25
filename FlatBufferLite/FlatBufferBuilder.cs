@@ -30,7 +30,7 @@ public ref struct FlatBufferBuilder
 		get => _buf.Length - _space;
 	}
 
-	public ReadOnlySpan<byte> Finish()
+	public Span<byte> Finish()
 	{
 		if (_pendingRoot != 0)
 		{
