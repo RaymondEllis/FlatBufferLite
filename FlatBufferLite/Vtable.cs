@@ -67,15 +67,13 @@ public static class Vtable
 		int vt = tablePos - FlatBufferReader.ReadUnaligned<int>(buffer, tablePos);
 		ushort slot = FlatBufferReader.ReadUnaligned<ushort>(buffer, vt + vtableField);
 		if (slot != 0)
-			ThrowAlreadySet();
+			throw new InvalidOperationException($"Variable-size field at vtable slot {vtableField} cannot be set more than once.");
 		int slotPos = tablePos + inlineOffset;
 		int v = dataAbsPos - slotPos;
 		if (v <= 0)
-			ThrowBackwardOffset();
+			throw new InvalidOperationException($"Data at {dataAbsPos} must be created before the table field at {slotPos}.");
 		Unsafe.WriteUnaligned(ref buffer[vt + vtableField], (ushort)inlineOffset);
 		Unsafe.WriteUnaligned(ref buffer[slotPos], v);
 	}
 
-	static void ThrowAlreadySet() => throw new InvalidOperationException("Variable-size field (string, vector, or table) cannot be set more than once.");
-	static void ThrowBackwardOffset() => throw new InvalidOperationException("Referenced data must be created before the table that references it.");
 }

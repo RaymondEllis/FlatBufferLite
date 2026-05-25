@@ -67,7 +67,7 @@ public ref struct FlatBufferBuilder
 		int padding = (-written) & (alignment - 1);
 		int needed = padding + upcomingBytes;
 		if (_space < needed)
-			ThrowBufferTooSmall();
+			throw new InvalidOperationException($"Buffer too small: {needed} bytes needed, {_space} available.");
 		if (padding > 0)
 		{
 			_space -= padding;
@@ -130,7 +130,7 @@ public ref struct FlatBufferBuilder
 			int slotPos = _space - 4;
 			int v = offsets[i] - slotPos;
 			if (v <= 0)
-				ThrowBackwardOffset();
+				throw new InvalidOperationException($"Offset data[{offsets[i]}] must be created before the vector slot at {slotPos}.");
 			_space = slotPos;
 			Unsafe.WriteUnaligned(ref _buf[_space], v);
 		}
@@ -144,27 +144,23 @@ public ref struct FlatBufferBuilder
 		_space -= 4;
 		int v = rootTablePos - _space;
 		if (v <= 0)
-			ThrowBackwardOffset();
+			throw new InvalidOperationException($"Root table at {rootTablePos} must be created before Finish() writes the root offset at {_space}.");
 		Unsafe.WriteUnaligned(ref _buf[_space], v);
 	}
 
 	void WriteRoot(int rootTablePos, ReadOnlySpan<byte> fileIdentifier)
 	{
 		if (fileIdentifier.Length != FlatBufferReader.FileIdentifierLength)
-			ThrowBadIdentifier();
+			throw new ArgumentException($"File identifier must be exactly {FlatBufferReader.FileIdentifierLength} bytes, got {fileIdentifier.Length}.", nameof(fileIdentifier));
 		Align(_minAlign, 4 + FlatBufferReader.FileIdentifierLength);
 		_space -= FlatBufferReader.FileIdentifierLength;
 		fileIdentifier.CopyTo(_buf.Slice(_space, FlatBufferReader.FileIdentifierLength));
 		_space -= 4;
 		int v = rootTablePos - _space;
 		if (v <= 0)
-			ThrowBackwardOffset();
+			throw new InvalidOperationException($"Root table at {rootTablePos} must be created before Finish() writes the root offset at {_space}.");
 		Unsafe.WriteUnaligned(ref _buf[_space], v);
 	}
-
-	static void ThrowBufferTooSmall() => throw new InvalidOperationException("FlatBufferBuilder destination buffer is too small.");
-	static void ThrowBackwardOffset() => throw new InvalidOperationException("Referenced data must be created before the table/vector that references it.");
-	static void ThrowBadIdentifier() => throw new ArgumentException("File identifier must be exactly 4 bytes.");
 
 	public static int StringMaxSize(int utf8ByteCount)
 	{

@@ -57,6 +57,6 @@ public class FlatBufferReaderTests
 	public void OutOfRange_Throws()
 	{
 		var buf = new byte[2];
-		Assert.Throws<IndexOutOfRangeException>(() => FlatBufferReader.ReadUnaligned<int>(buf, 0));
+		Assert.Throws<ArgumentOutOfRangeException>(() => FlatBufferReader.ReadUnaligned<int>(buf, 0));
 	}
 }

@@ -10,7 +10,7 @@ public static class FlatBufferReader
 	public static T ReadUnaligned<T>(ReadOnlySpan<byte> buffer, int offset) where T : unmanaged
 	{
 		if ((uint)offset + (uint)Unsafe.SizeOf<T>() > (uint)buffer.Length)
-			ThrowOutOfRange();
+			throw new ArgumentOutOfRangeException(nameof(offset), offset, $"Read of {Unsafe.SizeOf<T>()} bytes at offset {offset} exceeds buffer length {buffer.Length}.");
 		return Unsafe.ReadUnaligned<T>(ref Unsafe.AsRef(in buffer[offset]));
 	}
 
@@ -26,5 +26,4 @@ public static class FlatBufferReader
 		return buffer.Slice(4, FileIdentifierLength).SequenceEqual(identifier);
 	}
 
-	internal static void ThrowOutOfRange() => throw new IndexOutOfRangeException("FlatBuffer read outside buffer bounds.");
 }
