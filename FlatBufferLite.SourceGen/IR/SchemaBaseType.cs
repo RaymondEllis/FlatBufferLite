@@ -23,6 +23,8 @@ public enum SchemaBaseType : byte
 
 public static class SchemaBaseTypeExtensions
 {
+	// For Union, returns only the uoffset data portion (4 bytes). The 1-byte type tag is handled
+	// separately by the layout engine (AssignTableLayout) which allocates tag + padding + 4 bytes.
 	public static int InlineSize(this SchemaBaseType type) => type switch
 	{
 		SchemaBaseType.Bool or SchemaBaseType.Byte or SchemaBaseType.UByte or SchemaBaseType.UType => 1,
