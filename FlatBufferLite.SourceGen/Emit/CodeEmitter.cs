@@ -154,6 +154,17 @@ public sealed class CodeEmitter
 		foreach (var m in u.Members)
 		{
 			_sb.AppendLine();
+			_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(m.TypeName).AppendLine(" value)");
+			_sb.AppendLine("\t{");
+			_sb.Append("\t\tvar u = default(").Append(u.Name).AppendLine(");");
+			_sb.Append("\t\tu.").Append(m.Name).AppendLine(" = value;");
+			_sb.Append("\t\tu.Tag = ").Append(m.Tag).AppendLine(";");
+			_sb.AppendLine("\t\tthis = u;");
+			_sb.AppendLine("\t}");
+		}
+		foreach (var m in u.Members)
+		{
+			_sb.AppendLine();
 			_sb.Append("\tpublic static ").Append(u.Name).Append(" From").Append(m.Name).Append('(').Append(m.TypeName).AppendLine(" value)");
 			_sb.AppendLine("\t{");
 			_sb.Append("\t\tvar u = default(").Append(u.Name).AppendLine(");");
@@ -178,12 +189,16 @@ public sealed class CodeEmitter
 	void EmitTableUnion(UnionDef u)
 	{
 		_sb.AppendLine();
-		_sb.Append("public readonly ref struct ").AppendLine(u.Name);
+		_sb.AppendLine("[Union]");
+		_sb.Append("public readonly ref struct ").Append(u.Name).AppendLine(" : IUnion");
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
 		_sb.AppendLine("\tpublic readonly byte Tag;");
 		_sb.Append("\tpublic ").Append(u.Name).AppendLine("(Span<byte> buffer, int position, byte tag) { _buf = buffer; _pos = position; Tag = tag; }");
+		foreach (var m in u.Members)
+			_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(m.TypeName).Append(" value) { _buf = value.Buffer; _pos = value.BufferPos; Tag = ").Append(m.Tag).AppendLine("; }");
+		_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"Boxing not supported. Use TryGetAs.\");");
 		_sb.AppendLine("\tpublic bool HasValue => Tag != 0 && _pos > 0;");
 		foreach (var m in u.Members)
 		{
@@ -201,12 +216,14 @@ public sealed class CodeEmitter
 	void EmitOpaqueUnion(UnionDef u)
 	{
 		_sb.AppendLine();
-		_sb.Append("public readonly ref struct ").AppendLine(u.Name);
+		_sb.AppendLine("[Union]");
+		_sb.Append("public readonly ref struct ").Append(u.Name).AppendLine(" : IUnion");
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
 		_sb.AppendLine("\tpublic readonly byte Tag;");
 		_sb.Append("\tpublic ").Append(u.Name).AppendLine("(Span<byte> buffer, int position, byte tag) { _buf = buffer; _pos = position; Tag = tag; }");
+		_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"Boxing not supported.\");");
 		_sb.AppendLine("\tpublic bool HasValue => Tag != 0 && _pos > 0;");
 		_sb.AppendLine("}");
 	}
@@ -235,6 +252,7 @@ public sealed class CodeEmitter
 
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(Span<byte> buffer) => new ").Append(t.Name).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
 		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(ReadOnlySpan<byte> buffer) => new ").Append(t.Name).AppendLine("(MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in buffer[0]), buffer.Length), FlatBufferReader.GetRootOffset(buffer));");
+		_sb.AppendLine("\tpublic Span<byte> Buffer => _buf;");
 		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");
 
