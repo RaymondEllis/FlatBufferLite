@@ -476,6 +476,44 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void FieldAttribute_Key_ScalarLookupByKey_UnsortedCreation()
+	{
+		Span<byte> buf = stackalloc byte[1024];
+		var b = new FlatBufferBuilder(buf);
+
+		int n1 = b.CreateString("thirty"u8);
+		int n2 = b.CreateString("ten"u8);
+		int n3 = b.CreateString("twenty"u8);
+
+		var e1 = FlatBufferLite.Attr.Entry.Create(ref b, id: 30, name: n1);
+		var e2 = FlatBufferLite.Attr.Entry.Create(ref b, id: 10, name: n2);
+		var e3 = FlatBufferLite.Attr.Entry.Create(ref b, id: 20, name: n3);
+
+		// Store in sorted key order for binary search
+		ReadOnlySpan<int> offsets = stackalloc int[] { e2.BufferPos, e3.BufferPos, e1.BufferPos };
+		int vec = b.CreateVectorOfOffsets(offsets);
+
+		var outer = FlatBufferLite.Attr.Inner.Create(ref b, value: 0);
+		_ = b.Finish();
+
+		var v = new FlatBufferLite.Attr.EntryVector(buf, vec);
+		Assert.Equal(3, v.Length);
+
+		var found10 = v.LookupByKey(10);
+		Assert.True(found10.IsValid);
+		Assert.Equal(10, found10.Id);
+		Assert.Equal("ten", found10.Name.ToString());
+
+		var found30 = v.LookupByKey(30);
+		Assert.True(found30.IsValid);
+		Assert.Equal(30, found30.Id);
+		Assert.Equal("thirty", found30.Name.ToString());
+
+		var missing = v.LookupByKey(15);
+		Assert.False(missing.IsValid);
+	}
+
+	[Fact]
 	public void FieldAttribute_Hash_ParsedAndStored()
 	{
 		var source = """

@@ -74,7 +74,9 @@ public class AllTypesTests
 		var b = new FlatBufferBuilder(buf);
 		var sb = Score.Create(ref b);
 		sb.Value = 9_876_543_210L;
-		var sc = new Score(buf, sb.BufferPos);
+		sb.MarkAsRoot(ref b);
+		var span = b.Finish();
+		var sc = Score.GetRootAs(span);
 		Assert.Equal(9_876_543_210L, sc.Value);
 	}
 
@@ -88,7 +90,9 @@ public class AllTypesTests
 
 		var score = Score.Create(ref b, value: 42L);
 		var rb = Refs.Create(ref b, strVal: hello, scoreVal: score.BufferPos, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
-		var r = new Refs(buf, rb.BufferPos);
+		rb.MarkAsRoot(ref b);
+		var span = b.Finish();
+		var r = Refs.GetRootAs(span);
 
 		Assert.Equal("hello world", r.StrVal.ToString());
 		Assert.Equal(42L, r.ScoreVal.Value);

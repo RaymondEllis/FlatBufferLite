@@ -1,3 +1,5 @@
+using FlatBufferLite.Includes;
+
 namespace FlatBufferLite.Tests;
 
 public class IncludeRuntimeTests
