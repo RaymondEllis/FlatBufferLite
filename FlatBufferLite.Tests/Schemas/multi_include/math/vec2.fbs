@@ -1,0 +1,6 @@
+namespace FlatBufferLite.Tests.MultiInclude.Math;
+
+struct Vec2 {
+	x: float;
+	y: float;
+}

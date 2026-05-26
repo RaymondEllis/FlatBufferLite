@@ -1,0 +1,7 @@
+namespace FlatBufferLite.Tests.MultiInclude.Physics;
+
+include "math/vec3.fbs";
+
+struct Transform {
+	pos: Vec3;
+}

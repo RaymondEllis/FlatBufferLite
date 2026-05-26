@@ -1,0 +1,12 @@
+namespace FlatBufferLite.Tests.MultiInclude;
+
+include "math/vec3.fbs";
+include "particle.fbs";
+include "transform.fbs";
+
+table Scene {
+	tag: int;
+	xform: Transform;
+}
+
+root_type Scene;

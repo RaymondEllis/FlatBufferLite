@@ -1,0 +1,11 @@
+namespace FlatBufferLite.Tests.MultiInclude;
+
+include "math/vec2.fbs";
+include "math/vec3.fbs";
+
+table Sprite {
+	pos: Vec2;
+	normal: Vec3;
+}
+
+root_type Sprite;

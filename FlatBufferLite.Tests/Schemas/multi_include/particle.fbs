@@ -1,0 +1,10 @@
+namespace FlatBufferLite.Tests.MultiInclude.Physics;
+
+include "math/vec3.fbs";
+
+table Particle {
+	vel: Vec3;
+	mass: float;
+}
+
+root_type Particle;

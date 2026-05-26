@@ -1,0 +1,7 @@
+namespace FlatBufferLite.Tests.MultiInclude.Math;
+
+struct Vec3 {
+	x: float;
+	y: float;
+	z: float;
+}

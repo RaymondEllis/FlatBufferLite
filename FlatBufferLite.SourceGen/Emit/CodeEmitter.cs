@@ -23,6 +23,15 @@ public sealed class CodeEmitter
 		_sb.AppendLine("using System.Runtime.InteropServices;");
 		_sb.AppendLine("using FlatBufferLite;");
 
+		var referencedNamespaces = new HashSet<string?>();
+		foreach (var t in _schema.Tables) referencedNamespaces.Add(t.Namespace);
+		foreach (var s in _schema.Structs) referencedNamespaces.Add(s.Namespace);
+		foreach (var e in _schema.Enums) referencedNamespaces.Add(e.Namespace);
+		foreach (var u in _schema.Unions) referencedNamespaces.Add(u.Namespace);
+		foreach (var ns in referencedNamespaces)
+			if (!string.IsNullOrEmpty(ns))
+				_sb.Append("using ").Append(ns).AppendLine(";");
+
 		int enumCount = _schema.LocalEnumCount;
 		int structCount = _schema.LocalStructCount;
 		int unionCount = _schema.LocalUnionCount;
