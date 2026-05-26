@@ -617,4 +617,101 @@ public class SourceGenFeatureTests
 		Assert.Equal(0, s.Fields[0].Offset);
 		Assert.Equal(4, s.Fields[1].Offset);
 	}
+
+	// --- Include path resolution ---
+
+	[Fact]
+	public void IncludeDirective_ForwardSlashKeys_ResolvedCorrectly()
+	{
+		// fileContents uses forward-slash paths (cross-platform style).
+		// On Windows, ParseWithIncludes normalises the entry path to backslashes,
+		// so Path.Combine(dir, include) also produces backslashes.
+		// The dictionary lookup then fails because the key still has forward slashes
+		// → the include appears "missing" even though it is present.
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			["test/shared.fbs"] = "struct Vector3I { x: int; y: int; z: int; }",
+			["test/main.fbs"] = """
+				include "shared.fbs";
+				table Chunk { pos: Vector3I; }
+				root_type Chunk;
+				""",
+		};
+
+		var missingIncludes = new List<string>();
+		var schema = SchemaParser.ParseWithIncludes("test/main.fbs", files, missingIncludes);
+
+		Assert.Empty(missingIncludes);
+		Assert.Contains("Vector3I", schema.ByName.Keys);
+	}
+
+	// --- Missing include: layout corruption ---
+
+	[Fact]
+	public void MissingInclude_UnresolvedStructField_AddsSchemaWarning()
+	{
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[Path.Combine("test", "main.fbs")] = """
+				include "numerics.fbs";
+				table Chunk { pos: Vector3I; data: [ubyte]; }
+				root_type Chunk;
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "main.fbs"), files);
+
+		Assert.Contains(schema.Warnings, w => w.Contains("Vector3I"));
+	}
+
+	// --- Missing include: codegen corruption ---
+
+	[Fact]
+	public void MissingInclude_StructField_CreateParamUsesStructType()
+	{
+		// When Vector3I is not resolved, BuildParamType falls through to "int".
+		// The generated Create() should still use the struct type name so that the
+		// caller gets a compile-time error rather than silently accepting an int.
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[Path.Combine("test", "main.fbs")] = """
+				include "numerics.fbs";
+				table Chunk { pos: Vector3I; }
+				root_type Chunk;
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "main.fbs"), files);
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("Vector3I pos", code);
+		Assert.DoesNotContain(", int pos ", code);
+		Assert.DoesNotContain(", int pos)", code);
+	}
+
+	[Fact]
+	public void MissingInclude_StructField_BuildAssignIsEmitted()
+	{
+		// When Vector3I is not resolved, EmitBuildAssign silently generates nothing
+		// for the pos field.  The serialisation is dropped without any diagnostic.
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[Path.Combine("test", "main.fbs")] = """
+				include "numerics.fbs";
+				table Chunk { pos: Vector3I; }
+				root_type Chunk;
+				""",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "main.fbs"), files);
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		// The Create(ref FlatBufferBuilder builder, …) body must contain an actual
+		// Vtable write for pos, not just the parameter declaration.
+		int createIdx = code.IndexOf("Create(ref FlatBufferBuilder builder,");
+		Assert.True(createIdx >= 0, "Create overload not found");
+		int createEnd = code.IndexOf("\n\t}", createIdx);
+		var createBody = code.Substring(createIdx, createEnd - createIdx);
+		Assert.Contains("Vtable.Write", createBody);
+	}
 }

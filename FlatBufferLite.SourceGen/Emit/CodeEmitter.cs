@@ -377,6 +377,10 @@ public sealed class CodeEmitter
 				return;
 			}
 		}
+		else if (f.Type.IsObject && f.Type.ReferencedName != null)
+		{
+			_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+		}
 	}
 
 	void EmitBuildConstructor(TableDef t)
@@ -427,7 +431,7 @@ public sealed class CodeEmitter
 			if (def is EnumDef)
 				return f.Type.ReferencedName;
 		}
-		return "int";
+		return f.Type.ReferencedName ?? "int";
 	}
 
 	string BuildParamDefault(FieldDef f)
@@ -456,7 +460,7 @@ public sealed class CodeEmitter
 				return "default";
 			}
 		}
-		return "0";
+		return f.Type.IsObject && f.Type.ReferencedName != null ? "default" : "0";
 	}
 
 	void EmitBuildAssign(FieldDef f)
@@ -513,6 +517,10 @@ public sealed class CodeEmitter
 				return;
 			}
 		}
+		else if (f.Type.IsObject && f.Type.ReferencedName != null)
+		{
+			_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+		}
 	}
 
 	void EmitTableField(FieldDef f)
@@ -557,6 +565,12 @@ public sealed class CodeEmitter
 					EmitScalarProperty(name, underlying, propName, vto, absInline, defLit, castUnderlying: underlying);
 					return;
 				}
+			}
+			else
+			{
+				_sb.Append("\tpublic ").Append(name).Append(' ').Append(propName)
+					.Append(" { get => Vtable.StructOffset(_buf, _pos, ").Append(vto).Append(") is var o && o == 0 ? default : FlatBufferReader.ReadUnaligned<").Append(name).Append(">(_buf, o);")
+					.Append(" set => Vtable.WriteForced<").Append(name).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in value); }");
 			}
 			return;
 		}

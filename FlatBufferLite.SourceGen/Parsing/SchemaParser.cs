@@ -322,28 +322,38 @@ public sealed class SchemaParser
 
 	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents, List<string>? missingIncludes = null)
 	{
-		var normalized = entryFilePath.Replace('/', Path.DirectorySeparatorChar);
-		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-		{
-			normalized
-		};
+		// Normalise to forward slashes so the visited set is consistent regardless
+		// of how the caller constructed the path (Roslyn on Windows uses backslashes).
+		var normalized = entryFilePath.Replace('\\', '/');
+		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { normalized };
 		return ParseWithIncludes(normalized, fileContents, visited, missingIncludes);
+	}
+
+	static bool TryLookupFile(IReadOnlyDictionary<string, string> files, string path, out string? content)
+	{
+		if (files.TryGetValue(path, out content!)) return true;
+		// Try the other separator style; fileContents keys may use backslashes (Roslyn
+		// on Windows) or forward slashes (cross-platform dictionaries in tests).
+		var alt = path.IndexOf('/') >= 0 ? path.Replace('/', '\\') : path.Replace('\\', '/');
+		return files.TryGetValue(alt, out content!);
 	}
 
 	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited, List<string>? missingIncludes)
 	{
-		if (!fileContents.TryGetValue(filePath, out var source))
-			source = "";
-		var dir = Path.GetDirectoryName(filePath) ?? "";
+		TryLookupFile(fileContents, filePath, out var source);
+		source ??= "";
+		// dir is the forward-slash directory portion of filePath (trailing slash included).
+		var lastSlash = filePath.LastIndexOf('/');
+		var dir = lastSlash >= 0 ? filePath.Substring(0, lastSlash + 1) : "";
 		var parser = new SchemaParser(source);
 		var schema = parser.ParseRaw();
 
 		foreach (var include in schema.Includes)
 		{
-			var resolved = Path.Combine(dir, include.Replace('/', Path.DirectorySeparatorChar));
+			var resolved = dir + include.Replace('\\', '/');
 			if (!visited.Add(resolved))
 				continue;
-			if (!fileContents.ContainsKey(resolved))
+			if (!TryLookupFile(fileContents, resolved, out _))
 			{
 				missingIncludes?.Add(include);
 				continue;
@@ -778,6 +788,8 @@ public sealed class SchemaParser
 					continue;
 				}
 				int size = FieldSize(f.Type, schema, out int align);
+				if (size == 0 && f.Type.IsObject && f.Type.ReferencedName != null && !schema.ByName.ContainsKey(f.Type.ReferencedName))
+					schema.Warnings.Add($"Table '{t.Name}': field '{f.Name}' references unknown type '{f.Type.ReferencedName}'; layout cannot be computed without the included definition.");
 				if (align > maxAlign)
 					maxAlign = align;
 				off = AlignUp(off, align);
