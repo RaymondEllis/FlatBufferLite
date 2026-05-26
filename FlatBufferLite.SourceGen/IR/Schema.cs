@@ -144,10 +144,14 @@ public sealed class Schema
 	public void MergeFrom(Schema other)
 	{
 		var existing = new HashSet<string>();
-		foreach (var t in Tables) existing.Add(t.Name);
-		foreach (var s in Structs) existing.Add(s.Name);
-		foreach (var e in Enums) existing.Add(e.Name);
-		foreach (var u in Unions) existing.Add(u.Name);
+		foreach (var t in Tables)
+			existing.Add(t.Name);
+		foreach (var s in Structs)
+			existing.Add(s.Name);
+		foreach (var e in Enums)
+			existing.Add(e.Name);
+		foreach (var u in Unions)
+			existing.Add(u.Name);
 
 		foreach (var t in other.Tables)
 			if (existing.Add(t.Name))

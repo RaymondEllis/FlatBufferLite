@@ -2,7 +2,6 @@ using FlatBufferLite.SourceGen.IR;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Text;
 
 namespace FlatBufferLite.SourceGen.Parsing;
@@ -337,7 +336,8 @@ public sealed class SchemaParser
 
 	static bool TryLookupFile(IReadOnlyDictionary<string, string> files, string path, out string? content)
 	{
-		if (files.TryGetValue(path, out content!)) return true;
+		if (files.TryGetValue(path, out content!))
+			return true;
 		// Try the other separator style; fileContents keys may use backslashes (Roslyn
 		// on Windows) or forward slashes (cross-platform dictionaries in tests).
 		var alt = path.IndexOf('/') >= 0 ? path.Replace('/', '\\') : path.Replace('\\', '/');

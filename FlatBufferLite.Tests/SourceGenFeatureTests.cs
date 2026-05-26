@@ -362,7 +362,7 @@ public class SourceGenFeatureTests
 		var buf = new byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		var name = b.CreateString("Alice"u8);
-		var inv  = b.CreateVector<int>(new[] { 10, 20, 30 });
+		var inv = b.CreateVector<int>(new[] { 10, 20, 30 });
 		FlatBufferLite.Sample.Player.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
 		var bytes = b.Finish();
 		Assert.True(needed >= bytes.Length);
@@ -401,8 +401,14 @@ public class SourceGenFeatureTests
 		var buf = new byte[Req.Doc.TableMaxSize];
 		var b = new FlatBufferBuilder(buf);
 		bool threw = false;
-		try { FlatBufferLite.Req.Doc.Create(ref b, title: default); }
-		catch (InvalidOperationException) { threw = true; }
+		try
+		{
+			FlatBufferLite.Req.Doc.Create(ref b, title: default);
+		}
+		catch (InvalidOperationException)
+		{
+			threw = true;
+		}
 		Assert.True(threw, "Expected InvalidOperationException for required field with offset 0.");
 	}
 

@@ -33,11 +33,19 @@ public sealed class CodeEmitter
 
 		var namespaces = new List<string?>();
 		var nsSeen = new HashSet<string?>();
-		void Track(string? ns) { if (nsSeen.Add(ns)) namespaces.Add(ns); }
-		for (int i = 0; i < enumCount; i++) Track(_schema.Enums[i].Namespace);
-		for (int i = 0; i < structCount; i++) Track(_schema.Structs[i].Namespace);
-		for (int i = 0; i < unionCount; i++) Track(_schema.Unions[i].Namespace);
-		for (int i = 0; i < tableCount; i++) Track(_schema.Tables[i].Namespace);
+		void Track(string? ns)
+		{
+			if (nsSeen.Add(ns))
+				namespaces.Add(ns);
+		}
+		for (int i = 0; i < enumCount; i++)
+			Track(_schema.Enums[i].Namespace);
+		for (int i = 0; i < structCount; i++)
+			Track(_schema.Structs[i].Namespace);
+		for (int i = 0; i < unionCount; i++)
+			Track(_schema.Unions[i].Namespace);
+		for (int i = 0; i < tableCount; i++)
+			Track(_schema.Tables[i].Namespace);
 
 		foreach (var ns in namespaces)
 		{
@@ -49,13 +57,17 @@ public sealed class CodeEmitter
 				_sb.AppendLine("{");
 			}
 			for (int i = 0; i < enumCount; i++)
-				if (_schema.Enums[i].Namespace == ns) EmitEnum(_schema.Enums[i]);
+				if (_schema.Enums[i].Namespace == ns)
+					EmitEnum(_schema.Enums[i]);
 			for (int i = 0; i < structCount; i++)
-				if (_schema.Structs[i].Namespace == ns) EmitStruct(_schema.Structs[i]);
+				if (_schema.Structs[i].Namespace == ns)
+					EmitStruct(_schema.Structs[i]);
 			for (int i = 0; i < unionCount; i++)
-				if (_schema.Unions[i].Namespace == ns) EmitUnion(_schema.Unions[i]);
+				if (_schema.Unions[i].Namespace == ns)
+					EmitUnion(_schema.Unions[i]);
 			for (int i = 0; i < tableCount; i++)
-				if (_schema.Tables[i].Namespace == ns) EmitTable(_schema.Tables[i]);
+				if (_schema.Tables[i].Namespace == ns)
+					EmitTable(_schema.Tables[i]);
 			if (hasNs)
 				_sb.AppendLine("}");
 		}
@@ -318,7 +330,8 @@ public sealed class CodeEmitter
 		var refFields = new List<(string paramName, string? sizeExpr)>();
 		foreach (var f in t.Fields)
 		{
-			if (f.Deprecated) continue;
+			if (f.Deprecated)
+				continue;
 			string pname = ToCamelCase(f.Name);
 			if (f.Type.IsString)
 			{
@@ -356,7 +369,8 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic static int GetMaxSize(");
 		for (int i = 0; i < refFields.Count; i++)
 		{
-			if (i > 0) _sb.Append(", ");
+			if (i > 0)
+				_sb.Append(", ");
 			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
 		}
 		_sb.Append(") => TableMaxSize");
