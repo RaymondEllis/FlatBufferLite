@@ -729,4 +729,205 @@ public class SourceGenFeatureTests
 		Assert.Contains("itemsMaxSizeEach", code);
 		Assert.Contains("VectorOfOffsetsMaxSize(itemsCount) + itemsCount * itemsMaxSizeEach", code);
 	}
+
+	// --- Issue 2: Multiple namespaces per file ---
+
+	[Fact]
+	public void MultipleNamespaces_ParserTracksNamespacePerType()
+	{
+		var source = """
+			namespace Alpha;
+			table Foo { x: int; }
+			namespace Beta;
+			table Bar { y: int; }
+			root_type Foo;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.Equal("Alpha", schema.Tables[0].Namespace);
+		Assert.Equal("Beta", schema.Tables[1].Namespace);
+		Assert.Equal("Beta", schema.Namespace);
+	}
+
+	[Fact]
+	public void MultipleNamespaces_EnumAndStructTrackedSeparately()
+	{
+		var source = """
+			namespace A;
+			enum Color : ubyte { Red = 0, Green = 1 }
+			struct Vec2 { x: float; y: float; }
+			namespace B;
+			table Msg { x: int; }
+			root_type Msg;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		Assert.Equal("A", schema.Enums[0].Namespace);
+		Assert.Equal("A", schema.Structs[0].Namespace);
+		Assert.Equal("B", schema.Tables[0].Namespace);
+	}
+
+	[Fact]
+	public void MultipleNamespaces_EmitsBlockScopedNamespaceBlocks()
+	{
+		var source = """
+			namespace Alpha;
+			table Foo { x: int; }
+			namespace Beta;
+			table Bar { y: int; }
+			root_type Foo;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		var normalized = code.Replace("\r\n", "\n");
+
+		Assert.DoesNotContain("namespace Alpha;", normalized);
+		Assert.DoesNotContain("namespace Beta;", normalized);
+		Assert.Contains("namespace Alpha\n{", normalized);
+		Assert.Contains("namespace Beta\n{", normalized);
+
+		var alphaIdx = normalized.IndexOf("namespace Alpha");
+		var betaIdx = normalized.IndexOf("namespace Beta");
+		var fooIdx = normalized.IndexOf("public readonly ref struct Foo");
+		var barIdx = normalized.IndexOf("public readonly ref struct Bar");
+
+		Assert.True(fooIdx > alphaIdx && fooIdx < betaIdx);
+		Assert.True(barIdx > betaIdx);
+	}
+
+	[Fact]
+	public void SingleNamespace_EmitsBlockScopedBlock()
+	{
+		var source = """
+			namespace MyGame;
+			table Player { hp: int; }
+			root_type Player;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		var normalized = code.Replace("\r\n", "\n");
+
+		Assert.DoesNotContain("namespace MyGame;", normalized);
+		Assert.Contains("namespace MyGame\n{", normalized);
+	}
+
+	[Fact]
+	public void MultipleNamespaces_TypesGroupedInCorrectBlocks()
+	{
+		var source = """
+			namespace Ns1;
+			struct Vec { x: float; }
+			namespace Ns2;
+			table Entity { x: int; }
+			root_type Entity;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		var ns1Idx = code.IndexOf("namespace Ns1");
+		var ns2Idx = code.IndexOf("namespace Ns2");
+		var vecIdx = code.IndexOf("public partial struct Vec");
+		var entityIdx = code.IndexOf("public readonly ref struct Entity");
+
+		Assert.True(vecIdx > ns1Idx && vecIdx < ns2Idx);
+		Assert.True(entityIdx > ns2Idx);
+	}
+
+	// --- Issue 3: Non-root tables auto-mark root ---
+
+	[Fact]
+	public void NonRootTable_CreateAutomarksRoot()
+	{
+		var source = """
+			table Child { x: int; }
+			table Parent { x: int; }
+			root_type Parent;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		var childIdx = code.IndexOf("public readonly ref struct Child");
+		var parentIdx = code.IndexOf("public readonly ref struct Parent");
+
+		var childSection = code.Substring(childIdx, parentIdx - childIdx);
+		var parentSection = code.Substring(parentIdx);
+
+		Assert.Contains("builder.MarkRoot(__pos)", childSection);
+		Assert.Contains("builder.MarkRoot(__pos)", parentSection);
+	}
+
+	[Fact]
+	public void AllTables_BothCreateOverloads_CallMarkRoot()
+	{
+		var source = """
+			table Leaf { v: int; }
+			root_type Leaf;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		var count = 0;
+		var idx = 0;
+		while ((idx = code.IndexOf("builder.MarkRoot(__pos)", idx)) >= 0)
+		{
+			count++;
+			idx++;
+		}
+		Assert.Equal(2, count);
+	}
+
+	[Fact]
+	public void NonRootTable_CanBeUsedAsRoot_RoundTrips()
+	{
+		var source = """
+			table Aux { value: int; }
+			table Main { value: int; }
+			root_type Main;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		var auxIdx = code.IndexOf("public readonly ref struct Aux");
+		var mainIdx = code.IndexOf("public readonly ref struct Main");
+		var auxSection = code.Substring(auxIdx, mainIdx - auxIdx);
+		Assert.Contains("builder.MarkRoot(__pos)", auxSection);
+	}
+
+	// --- Issue 4: ref struct escape analysis / MarkAsRoot UnscopedRef ---
+
+	[Fact]
+	public void MarkAsRoot_HasUnscopedRefAttribute()
+	{
+		var source = """
+			table Thing { x: int; }
+			root_type Thing;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("[System.Diagnostics.CodeAnalysis.UnscopedRef]", code);
+
+		var unscopedIdx = code.IndexOf("[System.Diagnostics.CodeAnalysis.UnscopedRef]");
+		var markAsRootIdx = code.IndexOf("public void MarkAsRoot(ref FlatBufferBuilder builder)", unscopedIdx);
+		Assert.True(markAsRootIdx > unscopedIdx);
+	}
+
+	[Fact]
+	public void MarkAsRoot_UnscopedRefOnEveryTable()
+	{
+		var source = """
+			table A { x: int; }
+			table B { y: int; }
+			root_type A;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		var count = 0;
+		var idx = 0;
+		while ((idx = code.IndexOf("[System.Diagnostics.CodeAnalysis.UnscopedRef]", idx)) >= 0)
+		{
+			count++;
+			idx++;
+		}
+		Assert.Equal(2, count);
+	}
 }

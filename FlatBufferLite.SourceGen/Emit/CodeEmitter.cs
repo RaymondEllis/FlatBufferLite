@@ -23,23 +23,62 @@ public sealed class CodeEmitter
 		_sb.AppendLine("using System.Runtime.InteropServices;");
 		_sb.AppendLine("using FlatBufferLite;");
 
-		if (!string.IsNullOrEmpty(_schema.Namespace))
-			_sb.Append("namespace ").Append(_schema.Namespace).AppendLine(";");
-
 		int enumCount = _schema.LocalEnumCount;
 		int structCount = _schema.LocalStructCount;
 		int unionCount = _schema.LocalUnionCount;
 		int tableCount = _schema.LocalTableCount;
 
-		for (int i = 0; i < enumCount; i++)
-			EmitEnum(_schema.Enums[i]);
-		for (int i = 0; i < structCount; i++)
-			EmitStruct(_schema.Structs[i]);
 		for (int i = 0; i < unionCount; i++)
-			EmitUnion(_schema.Unions[i]);
-		for (int i = 0; i < tableCount; i++)
-			EmitTable(_schema.Tables[i]);
+			PreclassifyUnion(_schema.Unions[i]);
+
+		var namespaces = new List<string?>();
+		var nsSeen = new HashSet<string?>();
+		void Track(string? ns) { if (nsSeen.Add(ns)) namespaces.Add(ns); }
+		for (int i = 0; i < enumCount; i++) Track(_schema.Enums[i].Namespace);
+		for (int i = 0; i < structCount; i++) Track(_schema.Structs[i].Namespace);
+		for (int i = 0; i < unionCount; i++) Track(_schema.Unions[i].Namespace);
+		for (int i = 0; i < tableCount; i++) Track(_schema.Tables[i].Namespace);
+
+		foreach (var ns in namespaces)
+		{
+			bool hasNs = !string.IsNullOrEmpty(ns);
+			if (hasNs)
+			{
+				_sb.AppendLine();
+				_sb.Append("namespace ").AppendLine(ns);
+				_sb.AppendLine("{");
+			}
+			for (int i = 0; i < enumCount; i++)
+				if (_schema.Enums[i].Namespace == ns) EmitEnum(_schema.Enums[i]);
+			for (int i = 0; i < structCount; i++)
+				if (_schema.Structs[i].Namespace == ns) EmitStruct(_schema.Structs[i]);
+			for (int i = 0; i < unionCount; i++)
+				if (_schema.Unions[i].Namespace == ns) EmitUnion(_schema.Unions[i]);
+			for (int i = 0; i < tableCount; i++)
+				if (_schema.Tables[i].Namespace == ns) EmitTable(_schema.Tables[i]);
+			if (hasNs)
+				_sb.AppendLine("}");
+		}
 		return _sb.ToString();
+	}
+
+	void PreclassifyUnion(UnionDef u)
+	{
+		if (u.Members.Count == 0)
+		{
+			_refUnions.Add(u.Name);
+			return;
+		}
+		foreach (var m in u.Members)
+		{
+			bool isManaged = _schema.ByName.TryGetValue(m.TypeName, out var def)
+				&& (def is StructDef || def is EnumDef);
+			if (!isManaged)
+			{
+				_refUnions.Add(u.Name);
+				return;
+			}
+		}
 	}
 
 	void EmitEnum(EnumDef e)
@@ -266,6 +305,7 @@ public sealed class CodeEmitter
 			EmitTableField(f);
 		}
 
+		_sb.AppendLine("\t[System.Diagnostics.CodeAnalysis.UnscopedRef]");
 		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
 		_sb.AppendLine("}");
@@ -338,8 +378,7 @@ public sealed class CodeEmitter
 				continue;
 			EmitForceInlineAssign(f);
 		}
-		if (_schema.RootTypes.Contains(t.Name))
-			_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
+		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
 		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}
@@ -412,8 +451,7 @@ public sealed class CodeEmitter
 				continue;
 			EmitBuildAssign(f);
 		}
-		if (_schema.RootTypes.Contains(t.Name))
-			_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
+		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
 		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}

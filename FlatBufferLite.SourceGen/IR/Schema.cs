@@ -36,6 +36,7 @@ public sealed class FieldDef
 
 public sealed class TableDef : ISchemaDef
 {
+	public string? Namespace;
 	public string Name = "";
 	public List<FieldDef> Fields = new();
 	public bool OriginalOrder;
@@ -55,6 +56,7 @@ public sealed class StructFieldDef
 
 public sealed class StructDef : ISchemaDef
 {
+	public string? Namespace;
 	public string Name = "";
 	public List<StructFieldDef> Fields = new();
 	public int ForceAlign;
@@ -71,6 +73,7 @@ public sealed class EnumValueDef
 
 public sealed class EnumDef : ISchemaDef
 {
+	public string? Namespace;
 	public string Name = "";
 	public SchemaBaseType Underlying = SchemaBaseType.Int;
 	public List<EnumValueDef> Values = new();
@@ -86,6 +89,7 @@ public sealed class UnionMember
 
 public sealed class UnionDef : ISchemaDef
 {
+	public string? Namespace;
 	public string Name = "";
 	public List<UnionMember> Members = new();
 }

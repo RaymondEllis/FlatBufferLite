@@ -287,6 +287,7 @@ public sealed class SchemaParser
 	public Schema ParseRaw()
 	{
 		var schema = new Schema();
+		string? currentNamespace = null;
 		while (Peek().Kind != TokenKind.EOF)
 		{
 			var t = Peek();
@@ -294,11 +295,16 @@ public sealed class SchemaParser
 				throw new SchemaParseException($"Unexpected token '{t.Text}'", t.Line, t.Column);
 			switch (t.Text)
 			{
-				case "namespace": ParseNamespace(schema); break;
-				case "table": ParseTable(schema); break;
-				case "struct": ParseStruct(schema); break;
-				case "enum": ParseEnum(schema); break;
-				case "union": ParseUnion(schema); break;
+				case "namespace":
+					_pos++;
+					currentNamespace = ParseQualifiedName();
+					schema.Namespace = currentNamespace;
+					Expect(TokenKind.Semicolon);
+					break;
+				case "table": ParseTable(schema, currentNamespace); break;
+				case "struct": ParseStruct(schema, currentNamespace); break;
+				case "enum": ParseEnum(schema, currentNamespace); break;
+				case "union": ParseUnion(schema, currentNamespace); break;
 				case "root_type": _pos++; schema.AddRootType(ParseQualifiedName()); Expect(TokenKind.Semicolon); break;
 				case "file_identifier": _pos++; schema.FileIdentifier = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
 				case "file_extension": _pos++; schema.FileExtension = Expect(TokenKind.StringLit).Text; Expect(TokenKind.Semicolon); break;
@@ -371,13 +377,6 @@ public sealed class SchemaParser
 		return schema;
 	}
 
-	void ParseNamespace(Schema schema)
-	{
-		_pos++;
-		schema.Namespace = ParseQualifiedName();
-		Expect(TokenKind.Semicolon);
-	}
-
 	string ParseQualifiedName()
 	{
 		var sb = new StringBuilder();
@@ -390,11 +389,11 @@ public sealed class SchemaParser
 		return sb.ToString();
 	}
 
-	void ParseTable(Schema schema)
+	void ParseTable(Schema schema, string? ns)
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		var table = new TableDef { Name = name };
+		var table = new TableDef { Name = name, Namespace = ns };
 		ParseTableMetadata(table);
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
@@ -403,11 +402,11 @@ public sealed class SchemaParser
 		schema.Tables.Add(table);
 	}
 
-	void ParseStruct(Schema schema)
+	void ParseStruct(Schema schema, string? ns)
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
-		var s = new StructDef { Name = name };
+		var s = new StructDef { Name = name, Namespace = ns };
 		ParseStructMetadata(s);
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
@@ -419,7 +418,7 @@ public sealed class SchemaParser
 		schema.Structs.Add(s);
 	}
 
-	void ParseEnum(Schema schema)
+	void ParseEnum(Schema schema, string? ns)
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
@@ -445,7 +444,7 @@ public sealed class SchemaParser
 			Expect(TokenKind.RParen);
 		}
 		Expect(TokenKind.LBrace);
-		var e = new EnumDef { Name = name, Underlying = underlying, IsBitFlags = isBitFlags };
+		var e = new EnumDef { Name = name, Underlying = underlying, IsBitFlags = isBitFlags, Namespace = ns };
 		long autoVal = 0;
 		while (Peek().Kind != TokenKind.RBrace)
 		{
@@ -466,13 +465,13 @@ public sealed class SchemaParser
 		schema.Enums.Add(e);
 	}
 
-	void ParseUnion(Schema schema)
+	void ParseUnion(Schema schema, string? ns)
 	{
 		_pos++;
 		var name = ExpectIdent().Text;
 		SkipMetadata();
 		Expect(TokenKind.LBrace);
-		var u = new UnionDef { Name = name };
+		var u = new UnionDef { Name = name, Namespace = ns };
 		while (Peek().Kind != TokenKind.RBrace)
 		{
 			var t = ExpectIdent();
