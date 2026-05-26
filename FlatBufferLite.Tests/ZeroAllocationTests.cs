@@ -167,7 +167,7 @@ public class ZeroAllocationTests
 	[Fact]
 	public void GeneratedBuilder_DoesNotAllocate()
 	{
-		var buf = new byte[1024];
+		var buf = new byte[Player.GetMaxSize(nameByteCount: 5)];
 		Warm(buf);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();

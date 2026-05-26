@@ -87,13 +87,17 @@ new Player(ref b2, id: 42, name: name, hp: 250, inventory: inv);
 ReadOnlySpan<byte> bytes = b2.AsSpan();
 ```
 
-When a table has nested tables (e.g. `weapons: [Weapon]`), add their `GetMaxSize(...)` values separately:
+When a table has a vector-of-table field (e.g. `weapons: [Weapon]`), pass the per-element upper bound via `weaponsMaxSizeEach`:
 
 ```csharp
-int bufSize = Monster.GetMaxSize(nameByteCount: 6, weaponsCount: 2)
-            + Weapon.GetMaxSize(nameByteCount: 5)
-            + Weapon.GetMaxSize(nameByteCount: 3);
+int bufSize = Monster.GetMaxSize(
+    nameByteCount: 6,
+    weaponsCount: 2,
+    weaponsMaxSizeEach: Weapon.GetMaxSize(nameByteCount: 5));
 ```
+
+The generated expression covers both the offset array and each element's data:
+`VectorOfOffsetsMaxSize(weaponsCount) + weaponsCount * weaponsMaxSizeEach`
 
 ---
 

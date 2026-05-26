@@ -275,7 +275,7 @@ public sealed class CodeEmitter
 
 	void EmitGetMaxSize(TableDef t)
 	{
-		var refFields = new List<(string paramName, string sizeExpr)>();
+		var refFields = new List<(string paramName, string? sizeExpr)>();
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated) continue;
@@ -304,7 +304,10 @@ public sealed class CodeEmitter
 						else if (def is EnumDef ed)
 							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + ed.Underlying.ToCSharpKeyword() + ">(" + pname + "Count)"));
 						else
-							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
+						{
+							refFields.Add((pname + "Count", null));
+							refFields.Add((pname + "MaxSizeEach", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count) + " + pname + "Count * " + pname + "MaxSizeEach"));
+						}
 					}
 				}
 			}
@@ -318,7 +321,8 @@ public sealed class CodeEmitter
 		}
 		_sb.Append(") => TableMaxSize");
 		foreach (var (_, sizeExpr) in refFields)
-			_sb.Append(" + ").Append(sizeExpr);
+			if (sizeExpr != null)
+				_sb.Append(" + ").Append(sizeExpr);
 		_sb.AppendLine(";");
 	}
 

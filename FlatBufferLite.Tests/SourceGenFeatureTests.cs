@@ -345,7 +345,7 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void TableMaxSize_IsAtLeastGetSize()
 	{
-		Span<byte> buf = stackalloc byte[256];
+		Span<byte> buf = stackalloc byte[Sample.Player.TableMaxSize];
 		var b = new FlatBufferBuilder(buf);
 		FlatBufferLite.Sample.Player.Create(ref b, id: 1, hp: 50);
 		var span = b.Finish();
@@ -398,7 +398,7 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void FieldAttribute_Required_RuntimeEnforced()
 	{
-		var buf = new byte[256];
+		var buf = new byte[Req.Doc.TableMaxSize];
 		var b = new FlatBufferBuilder(buf);
 		bool threw = false;
 		try { FlatBufferLite.Req.Doc.Create(ref b, title: default); }
@@ -446,7 +446,7 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void FieldAttribute_Key_ScalarLookupByKey_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[1024];
+		Span<byte> buf = stackalloc byte[3 * Attr.Entry.GetMaxSize(nameByteCount: 5) + FlatBufferBuilder.VectorOfOffsetsMaxSize(3) + Attr.Inner.TableMaxSize];
 		var b = new FlatBufferBuilder(buf);
 
 		var n1 = b.CreateString("one"u8);
@@ -478,7 +478,7 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void FieldAttribute_Key_ScalarLookupByKey_UnsortedCreation()
 	{
-		Span<byte> buf = stackalloc byte[1024];
+		Span<byte> buf = stackalloc byte[3 * Attr.Entry.GetMaxSize(nameByteCount: 6) + FlatBufferBuilder.VectorOfOffsetsMaxSize(3) + Attr.Inner.TableMaxSize];
 		var b = new FlatBufferBuilder(buf);
 
 		var n1 = b.CreateString("thirty"u8);
@@ -553,12 +553,12 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void FieldAttribute_NestedFlatbuffer_RoundTrips()
 	{
-		Span<byte> innerBuf = stackalloc byte[128];
+		Span<byte> innerBuf = stackalloc byte[Attr.Inner.TableMaxSize];
 		var ib = new FlatBufferBuilder(innerBuf);
 		FlatBufferLite.Attr.Inner.Create(ref ib, value: 42);
 		var innerBytes = ib.Finish();
 
-		Span<byte> outerBuf = stackalloc byte[512];
+		Span<byte> outerBuf = stackalloc byte[Attr.Outer.GetMaxSize(blobCount: Attr.Inner.TableMaxSize)];
 		var ob = new FlatBufferBuilder(outerBuf);
 		var blob = ob.CreateVector<byte>(MemoryMarshal.Cast<byte, byte>(innerBytes));
 		FlatBufferLite.Attr.Outer.Create(ref ob, blob: blob);
@@ -713,5 +713,20 @@ public class SourceGenFeatureTests
 		int createEnd = code.IndexOf("\n\t}", createIdx);
 		var createBody = code.Substring(createIdx, createEnd - createIdx);
 		Assert.Contains("Vtable.Write", createBody);
+	}
+
+	[Fact]
+	public void GetMaxSize_VectorOfTable_EmitsRecursiveParams()
+	{
+		var source = """
+			table Item { name: string; }
+			table Bag { label: string; items: [Item]; }
+			root_type Bag;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("itemsCount", code);
+		Assert.Contains("itemsMaxSizeEach", code);
+		Assert.Contains("VectorOfOffsetsMaxSize(itemsCount) + itemsCount * itemsMaxSizeEach", code);
 	}
 }
