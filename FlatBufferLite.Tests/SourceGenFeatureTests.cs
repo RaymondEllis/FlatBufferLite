@@ -181,8 +181,8 @@ public class SourceGenFeatureTests
 		var schema = parser.Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 
-		var aIdx = code.IndexOf("public readonly ref struct A");
-		var bIdx = code.IndexOf("public readonly ref struct B");
+		var aIdx = code.IndexOf("public readonly ref partial struct A");
+		var bIdx = code.IndexOf("public readonly ref partial struct B");
 		Assert.True(aIdx >= 0);
 		Assert.True(bIdx >= 0);
 

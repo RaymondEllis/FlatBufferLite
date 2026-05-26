@@ -57,7 +57,7 @@ public class MultiRootTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 
 		Assert.Contains("public void MarkAsRoot(ref FlatBufferBuilder builder)", code);
-		var bSection = code.Substring(code.IndexOf("public readonly ref struct B"));
+		var bSection = code.Substring(code.IndexOf("public readonly ref partial struct B"));
 		Assert.Contains("public void MarkAsRoot(ref FlatBufferBuilder builder)", bSection);
 	}
 }

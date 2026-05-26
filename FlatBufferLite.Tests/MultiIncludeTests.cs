@@ -29,7 +29,7 @@ public class MultiIncludeTests
 		var code = new CodeEmitter(schema).Emit();
 
 		Assert.Contains("using FlatBufferLite.Tests.MultiInclude.Math;", code);
-		Assert.Contains("public readonly ref struct Sprite", code);
+		Assert.Contains("public readonly ref partial struct Sprite", code);
 	}
 
 	[Fact]
@@ -43,7 +43,7 @@ public class MultiIncludeTests
 
 		Assert.Contains("using FlatBufferLite.Tests.MultiInclude.Math;", code);
 		Assert.Contains("using FlatBufferLite.Tests.MultiInclude.Physics;", code);
-		Assert.Contains("public readonly ref struct Scene", code);
+		Assert.Contains("public readonly ref partial struct Scene", code);
 	}
 
 	[Fact]
@@ -138,12 +138,12 @@ public class MultiIncludeTests
 		Assert.DoesNotContain("Particle", vec3Code);
 		Assert.DoesNotContain("Transform", vec3Code);
 
-		Assert.Contains("public readonly ref struct Particle", particleCode);
+		Assert.Contains("public readonly ref partial struct Particle", particleCode);
 		Assert.DoesNotContain("public partial struct Vec3", particleCode);
 		Assert.DoesNotContain("public partial struct Transform", particleCode);
 
-		Assert.Contains("public readonly ref struct Scene", sceneCode);
-		Assert.DoesNotContain("public readonly ref struct Particle", sceneCode);
+		Assert.Contains("public readonly ref partial struct Scene", sceneCode);
+		Assert.DoesNotContain("public readonly ref partial struct Particle", sceneCode);
 		Assert.DoesNotContain("public partial struct Vec3", sceneCode);
 		Assert.DoesNotContain("public partial struct Transform", sceneCode);
 	}

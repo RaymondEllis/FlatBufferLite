@@ -37,7 +37,7 @@ public class IncludeAdditionalFilesTests
 		Assert.Contains("public partial struct Vector3I", sharedCode);
 
 		var mainCode = results.First(r => r.Key.EndsWith("includes_main.fbs", StringComparison.OrdinalIgnoreCase)).Value;
-		Assert.Contains("public readonly ref struct Chunk", mainCode);
+		Assert.Contains("public readonly ref partial struct Chunk", mainCode);
 		Assert.DoesNotContain("public partial struct Vector3I", mainCode);
 		Assert.Contains("Vector3I pos", mainCode);
 	}

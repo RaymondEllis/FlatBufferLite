@@ -277,7 +277,7 @@ public sealed class CodeEmitter
 	void EmitTable(TableDef t)
 	{
 		_sb.AppendLine();
-		_sb.Append("public readonly ref struct ").AppendLine(t.Name);
+		_sb.Append("public readonly ref partial struct ").AppendLine(t.Name);
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
