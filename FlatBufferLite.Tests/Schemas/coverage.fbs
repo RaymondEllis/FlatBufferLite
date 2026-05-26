@@ -1,0 +1,40 @@
+namespace FlatBufferLite.Coverage;
+
+enum Direction : ubyte {
+	North = 0,
+	South = 1,
+	East = 2,
+	West = 3,
+}
+
+struct Point {
+	x: int;
+	y: int;
+}
+
+struct Size {
+	w: int;
+	h: int;
+}
+
+// All-struct union members → EmitContiguousUnion path (generated as value-type struct)
+union PointOrSize { Point, Size }
+
+// Enum field with non-zero schema default → was bugged in EmitTableField (getter ignored DefaultValue)
+// Vector of enum → exercises EmitVectorReader EnumDef branch
+table Entity {
+	dir: Direction = South;
+	tags: [Direction];
+}
+
+table Item {
+	value: int;
+}
+
+// Vector-of-tables field → exercises two-param GetMaxSize branch
+table Container {
+	items: [Item];
+}
+
+root_type Entity;
+root_type Container;

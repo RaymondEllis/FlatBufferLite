@@ -362,7 +362,7 @@ public class SourceGenFeatureTests
 		var buf = new byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		var name = b.CreateString("Alice"u8);
-		var inv  = b.CreateVector<int>(new[] { 10, 20, 30 });
+		var inv = b.CreateVector<int>(new[] { 10, 20, 30 });
 		FlatBufferLite.Sample.Player.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
 		var bytes = b.Finish();
 		Assert.True(needed >= bytes.Length);
@@ -401,8 +401,14 @@ public class SourceGenFeatureTests
 		var buf = new byte[256];
 		var b = new FlatBufferBuilder(buf);
 		bool threw = false;
-		try { FlatBufferLite.Req.Doc.Create(ref b, title: default); }
-		catch (InvalidOperationException) { threw = true; }
+		try
+		{
+			FlatBufferLite.Req.Doc.Create(ref b, title: default);
+		}
+		catch (InvalidOperationException)
+		{
+			threw = true;
+		}
 		Assert.True(threw, "Expected InvalidOperationException for required field with offset 0.");
 	}
 
@@ -713,5 +719,82 @@ public class SourceGenFeatureTests
 		int createEnd = code.IndexOf("\n\t}", createIdx);
 		var createBody = code.Substring(createIdx, createEnd - createIdx);
 		Assert.Contains("Vtable.Write", createBody);
+	}
+
+	[Fact]
+	public void ContiguousUnion_AllStructMembers_EmittedAsValueType()
+	{
+		var source = """
+			struct Point { x: int; y: int; }
+			struct Size { w: int; h: int; }
+			union PointOrSize { Point, Size }
+			table Spot { shape: PointOrSize; }
+			root_type Spot;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public struct PointOrSize : IUnion", code);
+		Assert.DoesNotContain("ref struct PointOrSize", code);
+		Assert.Contains("public readonly bool TryGetValue(out Point value)", code);
+		Assert.Contains("public readonly bool TryGetValue(out Size value)", code);
+		Assert.Contains("public static PointOrSize FromPoint(Point value)", code);
+		Assert.Contains("public static PointOrSize FromSize(Size value)", code);
+	}
+
+	[Fact]
+	public void OpaqueUnion_MixedStructAndTable_EmittedWithoutTryGetAs()
+	{
+		var source = """
+			struct Point { x: int; y: int; }
+			table Circle { r: float; }
+			union Mixed { Point, Circle }
+			table Scene { shape: Mixed; }
+			root_type Scene;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("public readonly ref struct Mixed : IUnion", code);
+		Assert.DoesNotContain("TryGetAs", code);
+	}
+
+	[Fact]
+	public void VectorOfEnum_EmittedAsFlatVector()
+	{
+		var source = """
+			enum Dir : ubyte { N = 0, S = 1, E = 2, W = 3 }
+			table Path { steps: [Dir]; }
+			root_type Path;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("FlatVector<", code);
+		Assert.Contains("Steps", code);
+	}
+
+	[Fact]
+	public void VectorOfTables_GetMaxSize_EmitsTwoParams()
+	{
+		var source = """
+			table Item { value: int; }
+			table Bag { items: [Item]; }
+			root_type Bag;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("itemsCount", code);
+		Assert.Contains("itemsMaxSizeEach", code);
+	}
+
+	[Fact]
+	public void EnumDefault_TableFieldGetter_UsesSchemaDefault()
+	{
+		var source = """
+			enum Color : ubyte { Red = 0, Green = 1, Blue = 2 }
+			table Widget { tint: Color = Green; }
+			root_type Widget;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("Color.Green", code);
 	}
 }
