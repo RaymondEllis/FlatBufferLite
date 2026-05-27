@@ -60,7 +60,7 @@ public sealed partial class CodeEmitter
 		if (type.Base.IsScalar())
 			return ScalarCSharpType(type, out _);
 		if (type.IsString)
-			return "string?";
+			return "byte[]?";
 		if (type.IsUnion)
 			return null;
 		if (type.IsObject && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
@@ -86,7 +86,7 @@ public sealed partial class CodeEmitter
 		if (type.ElementBase.IsScalar())
 			return type.ElementBase.ToCSharpKeyword();
 		if (type.ElementBase == SchemaBaseType.String)
-			return "string";
+			return "byte[]";
 		if (type.ElementBase == SchemaBaseType.Obj && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
 		{
 			if (def is TableDef table)
@@ -108,7 +108,7 @@ public sealed partial class CodeEmitter
 		}
 		if (field.Type.IsString)
 		{
-			_sb.Append(indent).Append("__value.").Append(fieldName).Append(" = ").Append(fieldName).Append(".IsValid ? ").Append(fieldName).AppendLine(".ToString() : null;");
+			_sb.Append(indent).Append("__value.").Append(fieldName).Append(" = ").Append(fieldName).Append(".IsValid ? ").Append(fieldName).AppendLine(".AsBytes.ToArray() : null;");
 			return;
 		}
 		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct)
@@ -134,8 +134,8 @@ public sealed partial class CodeEmitter
 		}
 		else if (field.Type.ElementBase == SchemaBaseType.String)
 		{
-			_sb.Append(indent).Append("\tvar __items = new string[").Append(local).AppendLine(".Length];");
-			_sb.Append(indent).Append("\tfor (int i = 0; i < __items.Length; i++) __items[i] = ").Append(local).AppendLine("[i].ToString();");
+			_sb.Append(indent).Append("\tvar __items = new byte[").Append(local).AppendLine(".Length][];");
+			_sb.Append(indent).Append("\tfor (int i = 0; i < __items.Length; i++) __items[i] = ").Append(local).AppendLine("[i].AsBytes.ToArray();");
 			_sb.Append(indent).Append("\t__value.").Append(fieldName).AppendLine(" = __items;");
 		}
 		else if (field.Type.ElementBase == SchemaBaseType.Obj && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var elementDef))
@@ -172,7 +172,7 @@ public sealed partial class CodeEmitter
 		string local = "__" + fieldName;
 		if (field.Type.IsString)
 		{
-			_sb.Append(indent).Append("StringOffset ").Append(local).Append(" = value.").Append(fieldName).AppendLine(" == null ? default : builder.CreateString(Encoding.UTF8.GetBytes(value." + fieldName + "));");
+			_sb.Append(indent).Append("StringOffset ").Append(local).Append(" = value.").Append(fieldName).AppendLine(" == null ? default : builder.CreateString(value." + fieldName + ");");
 			return;
 		}
 		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct)
@@ -200,7 +200,7 @@ public sealed partial class CodeEmitter
 			_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
 			_sb.Append(indent).AppendLine("{");
 			_sb.Append(indent).Append("\tvar __offsets = new int[").Append(source).AppendLine(".Length];");
-			_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = builder.CreateString(Encoding.UTF8.GetBytes(").Append(source).AppendLine("[i]));");
+			_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = builder.CreateString(").Append(source).AppendLine("[i]);");
 			_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVectorOfOffsets(__offsets);");
 			_sb.Append(indent).AppendLine("}");
 			return;

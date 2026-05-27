@@ -27,4 +27,13 @@ table Bag (native_struct) {
 	qualities: [Quality];
 }
 
+table Label {
+	name: string;
+}
+
+table Shelf {
+	bag: Bag;
+	label: Label;
+}
+
 root_type Bag;
