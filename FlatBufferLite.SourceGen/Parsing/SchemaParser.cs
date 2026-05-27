@@ -329,7 +329,7 @@ public sealed class SchemaParser
 	{
 		// Normalise to forward slashes so the visited set is consistent regardless
 		// of how the caller constructed the path (Roslyn on Windows uses backslashes).
-		var normalized = entryFilePath.Replace('\\', '/');
+		var normalized = SchemaPath.Normalize(entryFilePath);
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { normalized };
 		return ParseWithIncludes(normalized, fileContents, visited, missingIncludes);
 	}
@@ -356,7 +356,7 @@ public sealed class SchemaParser
 
 		foreach (var include in schema.Includes)
 		{
-			var resolved = dir + include.Replace('\\', '/');
+			var resolved = SchemaPath.Normalize(dir + include);
 			if (!visited.Add(resolved))
 				continue;
 			if (!TryLookupFile(fileContents, resolved, out _))

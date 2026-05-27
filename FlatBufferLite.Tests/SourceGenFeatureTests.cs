@@ -140,6 +140,27 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void IncludeDirective_ParentDirectoryIncludeResolvesRelativeToIncludingFile()
+	{
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			[Path.Combine("test", "shared.fbs")] = "struct Vec2 { x: float; y: float; }",
+			[Path.Combine("test", "sub", "main.fbs")] = """
+				include "../shared.fbs";
+				table Thing { pos: Vec2; }
+				root_type Thing;
+				""",
+		};
+
+		var missing = new List<string>();
+		var schema = SchemaParser.ParseWithIncludes(Path.Combine("test", "sub", "main.fbs"), files, missing);
+
+		Assert.Empty(missing);
+		Assert.Contains("Vec2", schema.ByName.Keys);
+		Assert.Contains("Thing", schema.ByName.Keys);
+	}
+
+	[Fact]
 	public void PartialModifier_StructIsEmittedAsPartial()
 	{
 		var source = """
