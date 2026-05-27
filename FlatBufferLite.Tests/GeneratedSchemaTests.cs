@@ -7,7 +7,7 @@ public class GeneratedSchemaTests
 	[Fact]
 	public void PlayerTable_DefaultsAreReturned()
 	{
-		Span<byte> buf = stackalloc byte[Player.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Player.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		Player.Create(ref b);
 
@@ -47,7 +47,7 @@ public class GeneratedSchemaTests
 	[Fact]
 	public void PlayerTable_StructField_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Player.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Player.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var pb = Player.Create(ref b);
 		pb.Position = new Vec3 { X = 1.5f, Y = -2.5f, Z = 3.5f };

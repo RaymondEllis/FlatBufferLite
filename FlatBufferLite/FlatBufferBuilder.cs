@@ -179,26 +179,4 @@ public ref struct FlatBufferBuilder
 		Unsafe.WriteUnaligned(ref _buf[_space], v);
 	}
 
-	public static int StringMaxSize(int utf8ByteCount)
-	{
-		if (utf8ByteCount < 0)
-			utf8ByteCount = 0;
-		return utf8ByteCount + 8;
-	}
-
-	public static int VectorMaxSize<T>(int count) where T : unmanaged
-	{
-		if (count < 0)
-			count = 0;
-		int elt = Unsafe.SizeOf<T>();
-		int align = elt < 4 ? 4 : elt;
-		return count * elt + 4 + align - 1;
-	}
-
-	public static int VectorOfOffsetsMaxSize(int count)
-	{
-		if (count < 0)
-			count = 0;
-		return count * 4 + 7;
-	}
 }

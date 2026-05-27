@@ -118,7 +118,7 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_RectVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Scene.GetMaxSize(nameByteCount: 10) + Rect.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scene.GetMaxSize(nameByteCount: 10)];
 		var b = new FlatBufferBuilder(buf);
 
 		var sceneName = b.CreateString("scene-rect"u8);
@@ -142,7 +142,7 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_CircleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Scene.TableMaxSize + Circle.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 
 		var cb = Circle.Create(ref b, r: 5.5f);
@@ -162,7 +162,7 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_AbsentUnion_IsNone()
 	{
-		Span<byte> buf = stackalloc byte[Scene.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		Scene.Create(ref b);
 
@@ -177,7 +177,7 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_FieldAfterUnion_CorrectOffset()
 	{
-		Span<byte> buf = stackalloc byte[Scene.TableMaxSize + Circle.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 
 		var cb = Circle.Create(ref b, r: 1.0f);

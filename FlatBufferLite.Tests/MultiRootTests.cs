@@ -21,7 +21,7 @@ public class MultiRootTests
 	[Fact]
 	public void MultiRoot_WorldIndexData_AutoMarksRoot()
 	{
-		Span<byte> buf = stackalloc byte[WorldIndexData.TableMaxSize];
+		Span<byte> buf = stackalloc byte[WorldIndexData.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var world = WorldIndexData.Create(ref b, version: 42);
 
@@ -33,7 +33,7 @@ public class MultiRootTests
 	[Fact]
 	public void MarkAsRoot_ManuallyMarksNonRootTable()
 	{
-		Span<byte> buf = stackalloc byte[MetaData.TableMaxSize];
+		Span<byte> buf = stackalloc byte[MetaData.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var meta = MetaData.Create(ref b);
 		meta.Tag = 99;

@@ -286,10 +286,6 @@ public sealed class CodeEmitter
 		_sb.Append("\tpublic const int InlineSize = ").Append(t.InlineSize).AppendLine(";");
 		_sb.Append("\tpublic const int InlineAlign = ").Append(t.InlineAlign).AppendLine(";");
 
-		int effectiveAlign = t.InlineAlign < 4 ? 4 : t.InlineAlign;
-		int maxSize = 2 * effectiveAlign + 2 * t.SlotCount + t.InlineSize + 10;
-		_sb.Append("\tpublic const int TableMaxSize = ").Append(maxSize).AppendLine(";");
-		_sb.AppendLine("\tpublic int GetSize() { int vt = _pos - FlatBufferReader.ReadUnaligned<int>(_buf, _pos); return FlatBufferReader.ReadUnaligned<ushort>(_buf, vt) + FlatBufferReader.ReadUnaligned<ushort>(_buf, vt + 2); }");
 		EmitGetMaxSize(t);
 
 		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
@@ -318,41 +314,131 @@ public sealed class CodeEmitter
 		EmitTableVector(t);
 	}
 
-	void EmitGetMaxSize(TableDef t)
+	void EmitGetMaxSize(TableDef table)
 	{
-		var refFields = new List<(string paramName, string? sizeExpr)>();
-		foreach (var f in t.Fields)
+		var parameters = new List<string>();
+		var terms = new List<string>();
+		int constantSize = FixedTableSize(table);
+		foreach (var field in table.Fields)
 		{
-			if (f.Deprecated)
+			if (field.Deprecated)
 				continue;
-			string pname = ToCamelCase(f.Name);
-			if (f.Type.IsString)
+			string parameterPrefix = ToCamelCase(field.Name);
+			if (field.Type.IsString)
 			{
-				refFields.Add((pname + "ByteCount", "FlatBufferBuilder.StringMaxSize(" + pname + "ByteCount)"));
+				string byteCountParameter = parameterPrefix + "ByteCount";
+				parameters.Add(byteCountParameter);
+				terms.Add(byteCountParameter + " + 8");
 			}
-			else if (f.Type.IsVector)
+			else if (field.Type.IsUnion)
 			{
-				var elt = f.Type.ElementBase;
-				if (elt.IsScalar())
+				if (field.Type.ReferencedName != null && _refUnions.Contains(field.Type.ReferencedName))
 				{
-					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + elt.ToCSharpKeyword() + ">(" + pname + "Count)"));
-				}
-				else if (elt == SchemaBaseType.String || elt == SchemaBaseType.Union)
-				{
-					refFields.Add((pname + "Count", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count)"));
-				}
-				else if (elt == SchemaBaseType.Obj && f.Type.ReferencedName != null)
-				{
-					if (_schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
+					if (_schema.ByName.TryGetValue(field.Type.ReferencedName, out var unionDef) && unionDef is UnionDef union && TryGetKnownRefUnionPayloadSize(union, new HashSet<string>()) is int knownPayloadSize)
+						constantSize += knownPayloadSize;
+					else
 					{
-						if (def is StructDef)
-							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + f.Type.ReferencedName + ">(" + pname + "Count)"));
-						else if (def is EnumDef ed)
-							refFields.Add((pname + "Count", "FlatBufferBuilder.VectorMaxSize<" + ed.Underlying.ToCSharpKeyword() + ">(" + pname + "Count)"));
+						string maxSizeParameter = parameterPrefix + "MaxSize";
+						parameters.Add(maxSizeParameter);
+						terms.Add(maxSizeParameter);
+					}
+				}
+			}
+			else if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var fieldDef))
+			{
+				if (fieldDef is TableDef nestedTable)
+				{
+					if (TryGetKnownTableSize(nestedTable, new HashSet<string>()) is int knownPayloadSize)
+						constantSize += knownPayloadSize;
+					else
+					{
+						string maxSizeParameter = parameterPrefix + "MaxSize";
+						parameters.Add(maxSizeParameter);
+						terms.Add(maxSizeParameter);
+					}
+				}
+			}
+			else if (field.Type.IsVector)
+			{
+				string countParameter = parameterPrefix + "Count";
+				var elementType = field.Type.ElementBase;
+				if (elementType.IsScalar())
+				{
+					parameters.Add(countParameter);
+					terms.Add(VectorSizeTerm(countParameter, elementType.InlineSize()));
+				}
+				else if (elementType == SchemaBaseType.String)
+				{
+					string byteCountParameter = parameterPrefix + "ByteCount";
+					parameters.Add(countParameter);
+					parameters.Add(byteCountParameter);
+					terms.Add(OffsetVectorSizeTerm(countParameter));
+					terms.Add(byteCountParameter + " + " + countParameter + " * 8");
+				}
+				else if (elementType == SchemaBaseType.Union)
+				{
+					if (field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var unionDef) && unionDef is UnionDef union && TryGetKnownRefUnionPayloadSize(union, new HashSet<string>()) is int knownPayloadSize)
+					{
+						parameters.Add(countParameter);
+						terms.Add(OffsetVectorSizeTerm(countParameter));
+						terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
+					}
+					else
+					{
+						string maxSizeParameter = parameterPrefix + "MaxSize";
+						parameters.Add(countParameter);
+						parameters.Add(maxSizeParameter);
+						terms.Add(OffsetVectorSizeTerm(countParameter));
+						terms.Add(maxSizeParameter);
+					}
+				}
+				else if (elementType == SchemaBaseType.Obj && field.Type.ReferencedName != null)
+				{
+					if (_schema.ByName.TryGetValue(field.Type.ReferencedName, out var elementDef))
+					{
+						if (elementDef is StructDef structDef)
+						{
+							parameters.Add(countParameter);
+							terms.Add(VectorSizeTerm(countParameter, structDef.Size));
+						}
+						else if (elementDef is EnumDef enumDef)
+						{
+							parameters.Add(countParameter);
+							terms.Add(VectorSizeTerm(countParameter, enumDef.Underlying.InlineSize()));
+						}
+						else if (elementDef is TableDef nestedTable)
+						{
+							parameters.Add(countParameter);
+							terms.Add(OffsetVectorSizeTerm(countParameter));
+							if (TryGetKnownTableSize(nestedTable, new HashSet<string>()) is int knownPayloadSize)
+								terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
+							else
+							{
+								string maxSizeParameter = parameterPrefix + "MaxSize";
+								parameters.Add(maxSizeParameter);
+								terms.Add(maxSizeParameter);
+							}
+						}
+						else if (elementDef is UnionDef union)
+						{
+							parameters.Add(countParameter);
+							terms.Add(OffsetVectorSizeTerm(countParameter));
+							if (TryGetKnownRefUnionPayloadSize(union, new HashSet<string>()) is int knownPayloadSize)
+								terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
+							else
+							{
+								string maxSizeParameter = parameterPrefix + "MaxSize";
+								parameters.Add(maxSizeParameter);
+								terms.Add(maxSizeParameter);
+							}
+						}
 						else
 						{
-							refFields.Add((pname + "Count", null));
-							refFields.Add((pname + "MaxSizeEach", "FlatBufferBuilder.VectorOfOffsetsMaxSize(" + pname + "Count) + " + pname + "Count * " + pname + "MaxSizeEach"));
+							string maxSizeParameter = parameterPrefix + "MaxSize";
+							parameters.Add(countParameter);
+							parameters.Add(maxSizeParameter);
+							terms.Add(OffsetVectorSizeTerm(countParameter));
+							terms.Add(maxSizeParameter);
 						}
 					}
 				}
@@ -360,18 +446,88 @@ public sealed class CodeEmitter
 		}
 
 		_sb.Append("\tpublic static int GetMaxSize(");
-		for (int i = 0; i < refFields.Count; i++)
+		for (int i = 0; i < parameters.Count; i++)
 		{
 			if (i > 0)
 				_sb.Append(", ");
-			_sb.Append("int ").Append(refFields[i].paramName).Append(" = 0");
+			_sb.Append("int ").Append(parameters[i]).Append(" = 0");
 		}
-		_sb.Append(") => TableMaxSize");
-		foreach (var (_, sizeExpr) in refFields)
-			if (sizeExpr != null)
-				_sb.Append(" + ").Append(sizeExpr);
+		_sb.Append(") => ").Append(constantSize);
+		foreach (var term in terms)
+			_sb.Append(" + ").Append(term);
 		_sb.AppendLine(";");
 	}
+
+	int? TryGetKnownTableSize(TableDef table, HashSet<string> visiting)
+	{
+		if (!visiting.Add(table.Name))
+			return null;
+
+		int size = FixedTableSize(table);
+		foreach (var field in table.Fields)
+		{
+			if (field.Deprecated)
+				continue;
+			if (field.Type.IsString || field.Type.IsVector)
+				return null;
+			if (field.Type.IsUnion)
+			{
+				if (field.Type.ReferencedName == null || !_refUnions.Contains(field.Type.ReferencedName))
+					continue;
+				if (!_schema.ByName.TryGetValue(field.Type.ReferencedName, out var unionDef) || unionDef is not UnionDef union)
+					return null;
+				int? unionPayloadSize = TryGetKnownRefUnionPayloadSize(union, visiting);
+				if (!unionPayloadSize.HasValue)
+					return null;
+				size += unionPayloadSize.Value;
+				continue;
+			}
+			if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var fieldDef) && fieldDef is TableDef nestedTable)
+			{
+				int? nestedSize = TryGetKnownTableSize(nestedTable, visiting);
+				if (!nestedSize.HasValue)
+					return null;
+				size += nestedSize.Value;
+			}
+		}
+
+		visiting.Remove(table.Name);
+		return size;
+	}
+
+	int? TryGetKnownRefUnionPayloadSize(UnionDef union, HashSet<string> visiting)
+	{
+		if (!_refUnions.Contains(union.Name))
+			return 0;
+
+		int maxSize = 0;
+		foreach (var member in union.Members)
+		{
+			if (!_schema.ByName.TryGetValue(member.TypeName, out var memberDef) || memberDef is not TableDef table)
+				return null;
+			int? memberSize = TryGetKnownTableSize(table, visiting);
+			if (!memberSize.HasValue)
+				return null;
+			if (memberSize.Value > maxSize)
+				maxSize = memberSize.Value;
+		}
+		return maxSize;
+	}
+
+	static int FixedTableSize(TableDef table)
+	{
+		int effectiveAlign = table.InlineAlign < 4 ? 4 : table.InlineAlign;
+		return 2 * effectiveAlign + 2 * table.SlotCount + table.InlineSize + 10;
+	}
+
+	static string VectorSizeTerm(string countParameter, int elementSize)
+	{
+		int alignment = elementSize < 4 ? 4 : elementSize;
+		return countParameter + " * " + elementSize + " + " + (4 + alignment - 1).ToString(CultureInfo.InvariantCulture);
+	}
+
+	static string OffsetVectorSizeTerm(string countParameter)
+		=> countParameter + " * 4 + 7";
 
 	void EmitReserveConstructor(TableDef t)
 	{

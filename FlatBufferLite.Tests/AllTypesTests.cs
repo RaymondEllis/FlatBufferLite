@@ -7,7 +7,7 @@ public class AllTypesTests
 	[Fact]
 	public void Scalars_AllTypesRoundTrip()
 	{
-		Span<byte> buf = stackalloc byte[Scalars.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scalars.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var sb = Scalars.Create(ref b);
 		sb.BoolVal = true;
@@ -45,7 +45,7 @@ public class AllTypesTests
 	[Fact]
 	public void Scalars_DefaultsReturnedWhenAbsent()
 	{
-		Span<byte> buf = stackalloc byte[Scalars.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Scalars.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		Scalars.Create(ref b);
 
@@ -70,7 +70,7 @@ public class AllTypesTests
 	[Fact]
 	public void Score_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Score.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Score.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var sb = Score.Create(ref b);
 		sb.Value = 9_876_543_210L;
@@ -83,7 +83,7 @@ public class AllTypesTests
 	[Fact]
 	public void Refs_AllFieldsRoundTrip()
 	{
-		Span<byte> buf = stackalloc byte[Refs.GetMaxSize(strValByteCount: 11) + Score.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Refs.GetMaxSize(strValByteCount: 11)];
 		var b = new FlatBufferBuilder(buf);
 
 		var hello = b.CreateString("hello world"u8);
@@ -106,7 +106,7 @@ public class AllTypesTests
 	[Fact]
 	public void Refs_AbsentRefsAreInvalid()
 	{
-		Span<byte> buf = stackalloc byte[Refs.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Refs.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var rb = Refs.Create(ref b);
 		var r = new Refs(buf, rb.BufferPos);
@@ -156,7 +156,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_StringVector_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(strVecCount: 3) + FlatBufferBuilder.StringMaxSize(5) + FlatBufferBuilder.StringMaxSize(4) + FlatBufferBuilder.StringMaxSize(5)];
+		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(strVecCount: 3, strVecByteCount: 14)];
 		var b = new FlatBufferBuilder(buf);
 
 		int s0 = b.CreateString("alpha"u8);
@@ -213,7 +213,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_AbsentVectorIsInvalid()
 	{
-		Span<byte> buf = stackalloc byte[Vectors.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var vb = Vectors.Create(ref b);
 		var v = new Vectors(buf, vb.BufferPos);
@@ -234,7 +234,7 @@ public class AllTypesTests
 	[Fact]
 	public void BitFlags_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Flagged.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Flagged.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var fb = Flagged.Create(ref b, perms: Flags.Read | Flags.Execute);
 		var f = new Flagged(buf, fb.BufferPos);
@@ -245,7 +245,7 @@ public class AllTypesTests
 	[Fact]
 	public void BitFlags_DefaultIsZero()
 	{
-		Span<byte> buf = stackalloc byte[Flagged.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Flagged.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var fb = Flagged.Create(ref b);
 		var f = new Flagged(buf, fb.BufferPos);
@@ -255,7 +255,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_CircleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 9, tagByteCount: 11) + Circle.TableMaxSize];
+		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 9, tagByteCount: 11)];
 		var b = new FlatBufferBuilder(buf);
 
 		var myCircle = b.CreateString("my-circle"u8);
@@ -279,7 +279,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_RectangleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 7) + Rectangle.TableMaxSize];
+		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 7)];
 		var b = new FlatBufferBuilder(buf);
 
 		var nameOff = b.CreateString("my-rect"u8);
@@ -299,7 +299,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_AbsentUnionIsNone()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.TableMaxSize];
+		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var wu = WithUnion.Create(ref b);
 		var read = new WithUnion(buf, wu.BufferPos);
@@ -311,7 +311,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_FieldAfterUnion_CorrectVTableOffset()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(tagByteCount: 8) + Circle.TableMaxSize];
+		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(tagByteCount: 8)];
 		var b = new FlatBufferBuilder(buf);
 
 		var sentinel = b.CreateString("sentinel"u8);

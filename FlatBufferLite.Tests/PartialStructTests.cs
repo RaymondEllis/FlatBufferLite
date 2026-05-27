@@ -45,7 +45,7 @@ public class PartialStructTests
     [Fact]
     public void Vec2_PartialStruct_RoundTripFromBuffer_UserMethodWorks()
     {
-        Span<byte> buf = stackalloc byte[Refs.TableMaxSize];
+        Span<byte> buf = stackalloc byte[Refs.GetMaxSize()];
         var b = new FlatBufferBuilder(buf);
         var refs = Refs.Create(ref b, vec2Val: new Vec2 { X = 3.0f, Y = 4.0f });
         refs.MarkAsRoot(ref b);

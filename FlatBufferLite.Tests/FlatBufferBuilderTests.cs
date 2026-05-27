@@ -132,25 +132,6 @@ public class FlatBufferBuilderTests
 	}
 
 	[Fact]
-	public void StringMaxSize_EmptyAndNegativeIncludeOverhead()
-	{
-		Assert.Equal(8, FlatBufferBuilder.StringMaxSize(0));
-		Assert.Equal(8, FlatBufferBuilder.StringMaxSize(-1));
-		Assert.Equal(11, FlatBufferBuilder.StringMaxSize(3));
-	}
-
-	[Fact]
-	public void VectorMaxSize_EmptyAndNegativeIncludeOverhead()
-	{
-		Assert.Equal(7, FlatBufferBuilder.VectorMaxSize<int>(0));
-		Assert.Equal(7, FlatBufferBuilder.VectorMaxSize<int>(-1));
-		Assert.Equal(19, FlatBufferBuilder.VectorMaxSize<int>(3));
-		Assert.Equal(7, FlatBufferBuilder.VectorOfOffsetsMaxSize(0));
-		Assert.Equal(7, FlatBufferBuilder.VectorOfOffsetsMaxSize(-1));
-		Assert.Equal(19, FlatBufferBuilder.VectorOfOffsetsMaxSize(3));
-	}
-
-	[Fact]
 	public void AsSpan_ReturnsWrittenOutput()
 	{
 		Span<byte> buf = stackalloc byte[128];

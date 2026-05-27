@@ -319,7 +319,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void TableMaxSize_EmittedAsConst()
+	public void GetMaxSize_ScalarOnlyEmitsLiteralNoParameters()
 	{
 		var source = """
 			table Simple { x: int; }
@@ -327,30 +327,20 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public const int TableMaxSize = ", code);
+		Assert.Contains("public static int GetMaxSize() => ", code);
+		Assert.DoesNotContain("TableMaxSize", code);
+		Assert.DoesNotContain("public int GetSize()", code);
 	}
 
 	[Fact]
-	public void GetSize_EmittedAsInstanceMethod()
+	public void GetMaxSize_CoversScalarOnlyBuffer()
 	{
-		var source = """
-			table Simple { x: int; }
-			root_type Simple;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public int GetSize()", code);
-	}
-
-	[Fact]
-	public void TableMaxSize_IsAtLeastGetSize()
-	{
-		Span<byte> buf = stackalloc byte[256];
+		int needed = Sample.Player.GetMaxSize();
+		Span<byte> buf = stackalloc byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		FlatBufferLite.Sample.Player.Create(ref b, id: 1, hp: 50);
 		var span = b.Finish();
-		var player = Sample.Player.GetRootAs(span);
-		Assert.True(Sample.Player.TableMaxSize >= player.GetSize());
+		Assert.True(needed >= span.Length);
 	}
 
 	[Fact]
@@ -372,7 +362,8 @@ public class SourceGenFeatureTests
 	public void GetMaxSize_EmittedAsStaticMethod()
 	{
 		var source = """
-			table WithRefs { name: string; tags: [int]; }
+			table Child { value: int; }
+			table WithRefs { name: string; tags: [int]; child: Child; names: [string]; }
 			root_type WithRefs;
 			""";
 		var schema = new SchemaParser(source).Parse();
@@ -380,6 +371,69 @@ public class SourceGenFeatureTests
 		Assert.Contains("public static int GetMaxSize(", code);
 		Assert.Contains("nameByteCount", code);
 		Assert.Contains("tagsCount", code);
+		Assert.DoesNotContain("childMaxSize", code);
+		Assert.Contains("namesCount", code);
+		Assert.Contains("namesByteCount", code);
+		Assert.Contains("nameByteCount + 8", code);
+		Assert.Contains("tagsCount * 4 + 7", code);
+		Assert.Contains("namesByteCount + namesCount * 8", code);
+		Assert.DoesNotContain("FlatBufferBuilder.StringMaxSize", code);
+		Assert.DoesNotContain("FlatBufferBuilder.VectorMaxSize", code);
+		Assert.DoesNotContain("FlatBufferBuilder.VectorOfOffsetsMaxSize", code);
+	}
+
+	[Fact]
+	public void FixedNestedTable_GetMaxSize_DoesNotEmitPayloadMaxSize()
+	{
+		var source = """
+			table Score { value: long; }
+			table Player { score: Score; }
+			root_type Player;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.DoesNotContain("scoreMaxSize", code);
+	}
+
+	[Fact]
+	public void VariableNestedTable_GetMaxSize_EmitsPayloadMaxSize()
+	{
+		var source = """
+			table Child { name: string; }
+			table Parent { child: Child; }
+			root_type Parent;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("childMaxSize", code);
+	}
+
+	[Fact]
+	public void FixedRefUnion_GetMaxSize_DoesNotEmitPayloadMaxSize()
+	{
+		var source = """
+			table Circle { radius: float; }
+			union Shape { Circle }
+			table WithShape { shape: Shape; }
+			root_type WithShape;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+			Assert.DoesNotContain("shapeMaxSize", code);
+		}
+
+		[Fact]
+		public void VariableRefUnion_GetMaxSize_EmitsPayloadMaxSize()
+		{
+			var source = """
+				table Circle { name: string; }
+				union Shape { Circle }
+				table WithShape { shape: Shape; }
+				root_type WithShape;
+				""";
+			var schema = new SchemaParser(source).Parse();
+			var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+			Assert.Contains("shapeMaxSize", code);
 	}
 
 	[Fact]
@@ -772,7 +826,7 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void VectorOfTables_GetMaxSize_EmitsTwoParams()
+	public void VectorOfFixedTables_GetMaxSize_EmitsCountOnly()
 	{
 		var source = """
 			table Item { value: int; }
@@ -782,7 +836,23 @@ public class SourceGenFeatureTests
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("itemsCount", code);
-		Assert.Contains("itemsMaxSizeEach", code);
+		Assert.DoesNotContain("itemsMaxSize", code);
+		Assert.DoesNotContain("itemsMaxSizeEach", code);
+	}
+
+	[Fact]
+	public void VectorOfVariableTables_GetMaxSize_EmitsCountAndTotalPayloadSize()
+	{
+		var source = """
+			table Item { name: string; }
+			table Bag { items: [Item]; }
+			root_type Bag;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("itemsCount", code);
+		Assert.Contains("itemsMaxSize", code);
+		Assert.DoesNotContain("itemsMaxSizeEach", code);
 	}
 
 	[Fact]

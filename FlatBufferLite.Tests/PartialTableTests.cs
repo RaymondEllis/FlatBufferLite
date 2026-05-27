@@ -7,7 +7,7 @@ public class PartialTableTests
     [Fact]
     public void Score_PartialTable_UserMethod_ReturnsTrueAboveThreshold()
     {
-        Span<byte> buf = stackalloc byte[Score.TableMaxSize];
+        Span<byte> buf = stackalloc byte[Score.GetMaxSize()];
         var b = new FlatBufferBuilder(buf);
         var sb = Score.Create(ref b);
         sb.Value = 1000L;
@@ -29,7 +29,7 @@ public class PartialTableTests
     [Fact]
     public void Refs_PartialTable_UserMethod_DetectsNonZeroVec2()
     {
-        Span<byte> buf = stackalloc byte[Refs.TableMaxSize];
+        Span<byte> buf = stackalloc byte[Refs.GetMaxSize()];
         var b = new FlatBufferBuilder(buf);
         Refs.Create(ref b, vec2Val: new Vec2 { X = 1.0f, Y = 0.0f });
         var span = b.Finish();
@@ -41,7 +41,7 @@ public class PartialTableTests
     [Fact]
     public void Refs_PartialTable_UserMethod_ZeroVec2_ReturnsFalse()
     {
-        Span<byte> buf = stackalloc byte[Refs.TableMaxSize];
+        Span<byte> buf = stackalloc byte[Refs.GetMaxSize()];
         var b = new FlatBufferBuilder(buf);
         Refs.Create(ref b);
         var span = b.Finish();

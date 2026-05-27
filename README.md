@@ -1,6 +1,6 @@
-> **Disclaimer:** This library was written by AI and almost certainly contains flaws, bugs, and design oversights. The API may change completely in the next commit. Use at your own risk.
-
 # FlatBufferLite
+
+> **Disclaimer:** This library was written by AI and almost certainly contains flaws, bugs, and design oversights. The API may change completely in the next commit. Use at your own risk.
 
 A lightweight, zero-allocation, high-performance [FlatBuffers](https://flatbuffers.dev/) implementation in C# targeting game development. The goal is a minimal runtime with no heap allocations on the hot path, using `ref struct`, `Span<T>`, and source-generated table types — no reflection, no boxing, no surprises.
 
@@ -11,7 +11,7 @@ A lightweight, zero-allocation, high-performance [FlatBuffers](https://flatbuffe
 The source generator parses `.fbs` files and supports the following FlatBuffers schema features:
 
 | Feature | Status |
-|---|---|
+| --- | --- |
 | `namespace` | ✅ |
 | `table` | ✅ |
 | `struct` | ✅ |
@@ -69,35 +69,67 @@ ReadOnlySpan<byte> bytes = b.AsSpan();
 
 ### Pre-allocating buffers with `GetMaxSize`
 
-`TableMaxSize` is a source-generated `const int` for the fixed-size portion of the table (vtable + inline fields + root offset + worst-case alignment). For tables with strings or vectors, use `GetMaxSize(...)` which accepts the byte counts and element counts of those fields:
+Every generated table has one sizing method: `GetMaxSize(...)`. Use it to size the initial buffer before writing. Tables with only fixed-size fields have no parameters, so the generated method returns a literal. Fixed-size nested tables and fixed-size ref union payloads are folded into that generated size. Dynamic strings, vectors, or variable nested payloads accept only the counts or byte totals needed to calculate the upper bound.
 
 ```csharp
-// Only scalar/struct fields — TableMaxSize is sufficient:
-Span<byte> buf = stackalloc byte[Player.TableMaxSize];
+Span<byte> buf = stackalloc byte[Player.GetMaxSize()];
 var b = new FlatBufferBuilder(buf);
 new Player(ref b, id: 1, hp: 100);
 
-// With strings and vectors — use GetMaxSize:
 int bufSize = Player.GetMaxSize(nameByteCount: 5, inventoryCount: 3);
 var buf2 = new byte[bufSize];
 var b2 = new FlatBufferBuilder(buf2);
 int name = b2.CreateString("Alice"u8);
 int inv  = b2.CreateVector<int>(new[] { 10, 20, 30 });
 new Player(ref b2, id: 42, name: name, hp: 250, inventory: inv);
-ReadOnlySpan<byte> bytes = b2.AsSpan();
+ReadOnlySpan<byte> bytes = b2.Finish();
 ```
 
-When a table has a vector-of-table field (e.g. `weapons: [Weapon]`), pass the per-element upper bound via `weaponsMaxSizeEach`:
+Generated parameter suffixes are deliberately mechanical:
+
+| Suffix | Meaning |
+| --- | --- |
+| `ByteCount` | Total UTF-8 bytes for a string field, or all strings in a string vector |
+| `Count` | Number of vector elements |
+| `MaxSize` | Total max-size budget for a variable nested table, ref union payload, or all variable table/ref-union vector elements |
+
+Fixed-size nested payloads are included automatically:
+
+```csharp
+int bufSize = Refs.GetMaxSize(strValByteCount: 11);
+```
+
+Variable nested payloads compose through the same method:
 
 ```csharp
 int bufSize = Monster.GetMaxSize(
-    nameByteCount: 6,
-    weaponsCount: 2,
-    weaponsMaxSizeEach: Weapon.GetMaxSize(nameByteCount: 5));
+    loadoutMaxSize: Loadout.GetMaxSize(labelByteCount: 8));
 ```
 
-The generated expression covers both the offset array and each element's data:
-`VectorOfOffsetsMaxSize(weaponsCount) + weaponsCount * weaponsMaxSizeEach`
+For a vector of fixed-size tables, only the vector count is needed. For a vector of variable-size tables, also pass the total max-size budget for all elements:
+
+```csharp
+int weaponBytes = Weapon.GetMaxSize(nameByteCount: 5)
+    + Weapon.GetMaxSize(nameByteCount: 4);
+
+int bufSize = Monster.GetMaxSize(
+    nameByteCount: 6,
+    weaponsCount: 2,
+    weaponsMaxSize: weaponBytes);
+```
+
+Fixed-size ref union payloads are included automatically. Variable ref union payloads use a `MaxSize` parameter for the selected payload:
+
+```csharp
+int bufSize = WithUnion.GetMaxSize(
+    nameByteCount: 9,
+    tagByteCount: 11);
+
+int bufSizeWithVariableShape = WithUnion.GetMaxSize(
+    nameByteCount: 9,
+    shapeMaxSize: NamedShape.GetMaxSize(labelByteCount: 6),
+    tagByteCount: 11);
+```
 
 ---
 
@@ -122,36 +154,6 @@ var read  = new Score(b.Buffer, score.Pos);
 long v = read.Value; // 9_876_543_210
 ```
 
-### Measuring size with `GetSize`
+## Performance Notes
 
-`GetSize()` is a source-generated instance method that reads the vtable to return the exact number of bytes the table's structural data occupies (vtable + table data area, not counting the payloads of referenced strings, vectors, or nested tables).
-
-```csharp
-var player = Player.GetRootAs(bytes);
-int structural = player.GetSize(); // vtable + table data bytes
-int budget     = Player.GetMaxSize(); // upper bound including root + alignment
-```
-
-`GetMaxSize()` is a pure constant (zero memory reads) while `GetSize()` traverses the vtable, making `GetMaxSize()` the right choice for buffer pre-allocation.
-
----
-
-## Benchmarks
-
-The `FlatBufferLite.Benchmarks` project demonstrates the cost difference:
-
-```
-| Method     | Mean      | Allocated |
-|----------- |----------:|----------:|
-| GetMaxSize | 0.000 ns  |       0 B |
-| GetSize    | 1.234 ns  |       0 B |
-```
-*(example output — actual numbers depend on hardware and runtime)*
-
-`GetMaxSize()` is folded to a constant by the JIT with no memory access. `GetSize()` requires three reads from the buffer (soffset, vtableSize, tableDataSize).
-
-Run benchmarks:
-
-```
-dotnet run --project FlatBufferLite.Benchmarks -c Release
-```
+`GetMaxSize()` is generated as straight integer arithmetic. For fixed-size tables it returns a literal; for dynamic data it uses the byte counts, element counts, and nested payload budgets you pass. Calls with literal arguments are allocation-free and can be folded by the JIT.

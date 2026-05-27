@@ -7,7 +7,7 @@ public class CoverageTests
 	[Fact]
 	public void EnumDefault_AbsentField_ReturnsSchemaDefault()
 	{
-		Span<byte> buf = stackalloc byte[Entity.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Entity.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		Entity.Create(ref b);
 
@@ -20,7 +20,7 @@ public class CoverageTests
 	[Fact]
 	public void EnumDefault_ExplicitValue_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Entity.TableMaxSize];
+		Span<byte> buf = stackalloc byte[Entity.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 		var entity = Entity.Create(ref b);
 		entity.Dir = Direction.West;
