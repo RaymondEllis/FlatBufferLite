@@ -98,7 +98,7 @@ public ref struct FlatBufferBuilder
 		return tablePos;
 	}
 
-	public StringOffset CreateString(ReadOnlySpan<byte> utf8Bytes)
+	public StringOffset CreateString(scoped ReadOnlySpan<byte> utf8Bytes)
 	{
 		int byteCount = utf8Bytes.Length;
 		Align(4, byteCount + 1 + 4);
@@ -109,7 +109,7 @@ public ref struct FlatBufferBuilder
 		return new StringOffset(_space);
 	}
 
-	public VectorOffset CreateVector<T>(ReadOnlySpan<T> values) where T : unmanaged
+	public VectorOffset CreateVector<T>(scoped ReadOnlySpan<T> values) where T : unmanaged
 	{
 		int elt = Unsafe.SizeOf<T>();
 		int bytes = values.Length * elt;
@@ -121,7 +121,7 @@ public ref struct FlatBufferBuilder
 		return new VectorOffset(_space);
 	}
 
-	public VectorOffset CreateVectorOfOffsets(ReadOnlySpan<int> offsets)
+	public VectorOffset CreateVectorOfOffsets(scoped ReadOnlySpan<int> offsets)
 	{
 		int bytes = offsets.Length * 4;
 		Align(4, bytes + 4);
@@ -138,7 +138,7 @@ public ref struct FlatBufferBuilder
 		return new VectorOffset(_space);
 	}
 
-	public VectorOffset CreateVectorOfOffsets<T>(ReadOnlySpan<Offset<T>> offsets) where T : allows ref struct
+	public VectorOffset CreateVectorOfOffsets<T>(scoped ReadOnlySpan<Offset<T>> offsets) where T : allows ref struct
 	{
 		int bytes = offsets.Length * 4;
 		Align(4, bytes + 4);

@@ -1,4 +1,5 @@
 using FlatBufferLite.Sample;
+using FlatBufferLite.NativeStructs;
 using System.Runtime.CompilerServices;
 
 namespace FlatBufferLite.Tests;
@@ -161,6 +162,50 @@ public class ZeroAllocationTests
 			_ = Vtable.Read<int>(span, pos, 4, 0);
 			_ = new FlatString(span, Vtable.ReadIndirect(span, pos, 6));
 			_ = new FlatVector<int>(span, Vtable.ReadIndirect(span, pos, 8)).AsSpan;
+		}
+	}
+
+	[Fact]
+	public void NativeStructSerialize_DoesNotAllocateScratchArrays()
+	{
+		var source = new BagNative
+		{
+			Title = "bag"u8.ToArray(),
+			Scores = new[] { 1, 2, 3 },
+			Names = new[] { "one"u8.ToArray(), "two"u8.ToArray() },
+			Qualities = new[] { Quality.Low, Quality.High },
+			Items = new[]
+			{
+				new ItemNative
+				{
+					Id = 7,
+					Name = "item"u8.ToArray(),
+					Pos = new Vec2 { X = 3.5f, Y = -4.5f },
+					Quality = Quality.High,
+				},
+			},
+		};
+		var buf = new byte[4096];
+
+		Warm(buf, in source);
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		for (int i = 0; i < 1000; i++)
+			Round(buf, in source);
+		long after = GC.GetAllocatedBytesForCurrentThread();
+		Assert.Equal(0, after - before);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Warm(Span<byte> buf, in BagNative source) => Round(buf, in source);
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		static void Round(Span<byte> buf, in BagNative source)
+		{
+			var b = new FlatBufferBuilder(buf);
+			BagNative.Serialize(ref b, in source);
+			var span = b.Finish();
+			var read = Bag.GetRootAs(span);
+			_ = read.Scores.Length + read.Names.Length + read.Items.Length + read.Qualities.Length;
 		}
 	}
 

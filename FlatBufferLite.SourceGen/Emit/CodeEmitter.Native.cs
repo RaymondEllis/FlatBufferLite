@@ -199,7 +199,7 @@ public sealed partial class CodeEmitter
 			_sb.Append(indent).Append("VectorOffset ").Append(local).AppendLine(" = default;");
 			_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
 			_sb.Append(indent).AppendLine("{");
-			_sb.Append(indent).Append("\tvar __offsets = new int[").Append(source).AppendLine(".Length];");
+			_sb.Append(indent).Append("\tSpan<int> __offsets = stackalloc int[").Append(source).AppendLine(".Length];");
 			_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = builder.CreateString(").Append(source).AppendLine("[i]);");
 			_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVectorOfOffsets(__offsets);");
 			_sb.Append(indent).AppendLine("}");
@@ -209,14 +209,7 @@ public sealed partial class CodeEmitter
 		{
 			if (elementDef is EnumDef enumDef)
 			{
-				string underlying = enumDef.Underlying.ToCSharpKeyword();
-				_sb.Append(indent).Append("VectorOffset ").Append(local).AppendLine(" = default;");
-				_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
-				_sb.Append(indent).AppendLine("{");
-				_sb.Append(indent).Append("\tvar __items = new ").Append(underlying).Append('[').Append(source).AppendLine(".Length];");
-				_sb.Append(indent).Append("\tfor (int i = 0; i < __items.Length; i++) __items[i] = (").Append(underlying).Append(')').Append(source).AppendLine("[i];");
-				_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVector(__items);");
-				_sb.Append(indent).AppendLine("}");
+				_sb.Append(indent).Append("VectorOffset ").Append(local).Append(" = ").Append(source).Append(" == null ? default : builder.CreateVector(").Append(source).AppendLine(");");
 				return;
 			}
 			if (elementDef is TableDef table && table.NativeStruct)
@@ -224,7 +217,7 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).Append("VectorOffset ").Append(local).AppendLine(" = default;");
 				_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
 				_sb.Append(indent).AppendLine("{");
-				_sb.Append(indent).Append("\tvar __offsets = new int[").Append(source).AppendLine(".Length];");
+				_sb.Append(indent).Append("\tSpan<int> __offsets = stackalloc int[").Append(source).AppendLine(".Length];");
 				_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = ").Append(NativeName(table)).Append(".Serialize(ref builder, in ").Append(source).AppendLine("[i]).BufferPos;");
 				_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVectorOfOffsets(__offsets);");
 				_sb.Append(indent).AppendLine("}");
