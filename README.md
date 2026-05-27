@@ -171,7 +171,7 @@ table Player (native_struct) {
 
 This emits `PlayerNative` alongside the zero-allocation `Player` ref struct. Native structs can be used at the root or nested inside other native structs when the nested table is also annotated. FlatBuffers structs and enums can be fields directly.
 
-Strings and vectors in native structs use `string` and arrays, so serializing or deserializing those fields allocates on the managed heap.
+Strings in native structs use UTF-8 byte arrays (`byte[]`), and vectors use arrays, so serializing or deserializing those fields allocates on the managed heap.
 
 ## Performance Notes
 
