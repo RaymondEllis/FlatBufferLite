@@ -21,7 +21,6 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("using System;");
 		_sb.AppendLine("using System.Runtime.CompilerServices;");
 		_sb.AppendLine("using System.Runtime.InteropServices;");
-		_sb.AppendLine("using System.Text;");
 		_sb.AppendLine("using FlatBufferLite;");
 
 		var referencedNamespaces = new HashSet<string?>();

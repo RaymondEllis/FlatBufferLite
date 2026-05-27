@@ -302,6 +302,27 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void NativeStruct_StringsEmitByteArrays()
+	{
+		var source = """
+			attribute "native_struct";
+			table Native (native_struct) {
+				name: string;
+				names: [string];
+			}
+			root_type Native;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("public byte[]? Name;", code);
+		Assert.Contains("public byte[][]? Names;", code);
+		Assert.Contains("Name.IsValid ? Name.AsBytes.ToArray() : null", code);
+		Assert.Contains("builder.CreateString(value.Name)", code);
+		Assert.DoesNotContain("Encoding.UTF8", code);
+	}
+
+	[Fact]
 	public void FieldAttribute_Id_AssignsExplicitVTableSlots()
 	{
 		var source = """
