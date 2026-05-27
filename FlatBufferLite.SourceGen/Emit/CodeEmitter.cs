@@ -21,6 +21,7 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("using System;");
 		_sb.AppendLine("using System.Runtime.CompilerServices;");
 		_sb.AppendLine("using System.Runtime.InteropServices;");
+		_sb.AppendLine("using System.Text;");
 		_sb.AppendLine("using FlatBufferLite;");
 
 		var referencedNamespaces = new HashSet<string?>();
@@ -154,8 +155,13 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("\t[System.Diagnostics.CodeAnalysis.UnscopedRef]");
 		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
+		if (t.NativeStruct)
+			EmitNativeTableMethods(t);
+
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
+		if (t.NativeStruct)
+			EmitNativeStruct(t);
 	}
 }
