@@ -177,7 +177,7 @@ public sealed partial class CodeEmitter
 		}
 		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct)
 		{
-			_sb.Append(indent).Append("Offset<").Append(field.Type.ReferencedName).Append("> ").Append(local).Append(" = value.").Append(fieldName).Append(".HasValue ? ").Append(field.Type.ReferencedName).Append(".Create(ref builder, in value.").Append(fieldName).Append(".GetValueOrDefault()).AsOffset : default;").AppendLine();
+			_sb.Append(indent).Append("Offset<").Append(field.Type.ReferencedName).Append("> ").Append(local).Append(" = value.").Append(fieldName).Append(".HasValue ? ").Append(NativeName(table)).Append(".Serialize(ref builder, in value.").Append(fieldName).Append(".GetValueOrDefault()).AsOffset : default;").AppendLine();
 			return;
 		}
 		if (field.Type.IsVector)
@@ -225,7 +225,7 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
 				_sb.Append(indent).AppendLine("{");
 				_sb.Append(indent).Append("\tvar __offsets = new int[").Append(source).AppendLine(".Length];");
-				_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = ").Append(field.Type.ReferencedName).Append(".Create(ref builder, in ").Append(source).AppendLine("[i]).BufferPos;");
+				_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = ").Append(NativeName(table)).Append(".Serialize(ref builder, in ").Append(source).AppendLine("[i]).BufferPos;");
 				_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVectorOfOffsets(__offsets);");
 				_sb.Append(indent).AppendLine("}");
 			}

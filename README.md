@@ -32,6 +32,7 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | Field attribute: `flexbuffer` | ❌ (parsed only; FlexBuffers not supported) |
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
+| Type attribute: `native_struct` (tables) → plain C# struct DTO | ✅ |
 | Type attribute: `original_order` (tables) | ❌ (parsed only; table fields are always in declaration order) |
 | Enum attribute: `bit_flags` | ✅ |
 | Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
@@ -153,6 +154,24 @@ var read  = new Score(b.Buffer, score.Pos);
 
 long v = read.Value; // 9_876_543_210
 ```
+
+### Native structs
+
+Annotate a table with `(native_struct)` to also generate a regular C# struct DTO with public fields and `Serialize` / `Deserialize` helpers:
+
+```fbs
+attribute "native_struct";
+
+table Player (native_struct) {
+  id: int;
+  name: string;
+  inventory: [int];
+}
+```
+
+This emits `PlayerNative` alongside the zero-allocation `Player` ref struct. Native structs can be used at the root or nested inside other native structs when the nested table is also annotated. FlatBuffers structs and enums can be fields directly.
+
+Strings and vectors in native structs use `string` and arrays, so serializing or deserializing those fields allocates on the managed heap.
 
 ## Performance Notes
 
