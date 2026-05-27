@@ -1,0 +1,39 @@
+attribute "native_struct";
+
+namespace FlatBufferLite.NativeStructs;
+
+enum Quality : ubyte {
+	Low = 0,
+	High = 1,
+}
+
+struct Vec2 {
+	x: float;
+	y: float;
+}
+
+table Item (native_struct) {
+	id: int;
+	name: string;
+	pos: Vec2;
+	quality: Quality = High;
+}
+
+table Bag (native_struct) {
+	title: string;
+	scores: [int];
+	names: [string];
+	items: [Item];
+	qualities: [Quality];
+}
+
+table Label {
+	name: string;
+}
+
+table Shelf {
+	bag: Bag;
+	label: Label;
+}
+
+root_type Bag;

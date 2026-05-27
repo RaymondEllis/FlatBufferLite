@@ -154,8 +154,13 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("\t[System.Diagnostics.CodeAnalysis.UnscopedRef]");
 		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
+		if (t.NativeStruct)
+			EmitNativeTableMethods(t);
+
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
+		if (t.NativeStruct)
+			EmitNativeStruct(t);
 	}
 }
