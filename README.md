@@ -54,7 +54,7 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | Field attribute: `key` → `LookupByKey` on vector | ✅ |
 | Field attribute: `hash` | ❌ (parsed only; hashing not applied) |
 | Field attribute: `nested_flatbuffer` → typed `XxxNested` accessor | ✅ |
-| Field attribute: `flexbuffer` | ❌ (parsed only; FlexBuffers not supported) |
+| Field attribute: `flexbuffer` | ✅ (`FlatFlexBuffer` accessor emitted for `[ubyte]` fields) |
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
 | Type attribute: `plain_struct` (tables) → plain C# struct DTO | ✅ |
@@ -265,6 +265,21 @@ Fields annotated with `(key)` generate a binary-search `LookupByKey` method on t
 ```csharp
 var entry = entries.LookupByKey(targetId);
 if (entry.IsValid) { /* found */ }
+```
+
+### FlexBuffers
+
+Fields declared as `[ubyte] (flexbuffer)` emit an additional `{FieldName}Flex` accessor that exposes the bytes as a `FlatFlexBuffer` root reader:
+
+```fbs
+table FlexPayload {
+  data: [ubyte] (flexbuffer);
+}
+```
+
+```csharp
+var payload = FlexPayloadRef.GetRootAs(bytes);
+long value = payload.DataFlex.Root.AsInt64();
 ```
 
 ---

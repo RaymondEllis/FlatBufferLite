@@ -121,6 +121,8 @@ public ref struct FlatBufferBuilder
 		return new VectorOffset(_space);
 	}
 
+	public VectorOffset CreateFlexBuffer(scoped ReadOnlySpan<byte> value) => CreateVector(value);
+
 	public VectorOffset CreateVectorOfOffsets(scoped ReadOnlySpan<int> offsets)
 	{
 		int bytes = offsets.Length * 4;

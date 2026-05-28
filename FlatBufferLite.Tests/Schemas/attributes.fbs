@@ -9,6 +9,10 @@ table Outer {
 	blob: [ubyte] (nested_flatbuffer: "Inner");
 }
 
+table Flex {
+	data: [ubyte] (flexbuffer);
+}
+
 // Tests key: sorted vector of Entry by id for binary search.
 table Entry {
 	id: int (key);
@@ -17,3 +21,4 @@ table Entry {
 
 root_type Inner;
 root_type Outer;
+root_type Flex;
