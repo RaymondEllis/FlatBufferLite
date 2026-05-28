@@ -10,11 +10,6 @@ A lightweight, zero-allocation, high-performance [FlatBuffers](https://flatbuffe
 
 Every `table` in your schema generates a **ref struct** (`readonly ref partial struct`) named `{Name}Ref`. When annotated with `(plain_struct)`, an additional regular C# struct named `{Name}` is generated alongside the ref struct.
 
-| Schema declaration | Generated ref struct | Generated plain struct |
-| --- | --- | --- |
-| `table Player { ... }` | `PlayerRef` | — |
-| `table Player (plain_struct) { ... }` | `PlayerRef` | `Player` |
-
 ### Ref structs vs Plain structs
 
 **Ref structs** (`PlayerRef`) are zero-allocation wrappers over a `Span<byte>` buffer. They read fields directly from the flat binary data with no copies, no GC pressure, and no heap usage. They cannot escape the stack and cannot be stored in class fields or collections.
