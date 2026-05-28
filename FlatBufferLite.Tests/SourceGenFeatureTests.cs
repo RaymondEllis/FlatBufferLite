@@ -791,6 +791,31 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void TableLayout_DefaultOrdering_MatchesFlatBuffersSizeBuckets_ForStructFields()
+	{
+		var source = """
+			struct Vec3 {
+				x: float;
+				y: float;
+				z: float;
+			}
+			table Mixed {
+				i: int;
+				s: Vec3;
+			}
+			root_type Mixed;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var table = schema.Tables[0];
+		var i = table.Fields.Single(f => f.Name == "i");
+		var s = table.Fields.Single(f => f.Name == "s");
+
+		Assert.Equal(0, i.InlineOffset);
+		Assert.Equal(4, s.InlineOffset);
+		Assert.Equal(16, table.InlineSize);
+	}
+
+	[Fact]
 	public void TypeAttribute_ForceAlign_ChangesStructAlignment()
 	{
 		var source = """

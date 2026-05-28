@@ -812,22 +812,18 @@ public sealed class SchemaParser
 		if (table.OriginalOrder)
 			return fields;
 
-		var order = new Dictionary<FieldDef, (int Align, int Size, int DeclarationIndex)>(fields.Count);
+		var order = new Dictionary<FieldDef, (int SortSize, int DeclarationIndex)>(fields.Count);
 		for (int i = 0; i < fields.Count; i++)
 		{
 			var field = fields[i];
-			GetTableFieldLayoutHint(field, schema, out int align, out int size);
-			order[field] = (align, size, i);
+			order[field] = (GetTableFieldSortSize(field, schema), i);
 		}
 
 		fields.Sort((a, b) =>
 		{
 			var x = order[a];
 			var y = order[b];
-			int alignCmp = y.Align.CompareTo(x.Align);
-			if (alignCmp != 0)
-				return alignCmp;
-			int sizeCmp = y.Size.CompareTo(x.Size);
+			int sizeCmp = y.SortSize.CompareTo(x.SortSize);
 			if (sizeCmp != 0)
 				return sizeCmp;
 			return x.DeclarationIndex.CompareTo(y.DeclarationIndex);
@@ -835,28 +831,20 @@ public sealed class SchemaParser
 		return fields;
 	}
 
-	static void GetTableFieldLayoutHint(FieldDef field, Schema schema, out int align, out int size)
+	static int GetTableFieldSortSize(FieldDef field, Schema schema)
 	{
 		if (field.Type.IsUnion)
-		{
-			align = 4;
-			size = 8;
-			return;
-		}
+			return 4;
 		if (field.Type.IsString || field.Type.IsVector)
-		{
-			align = 4;
-			size = 4;
-			return;
-		}
+			return 4;
 		if (field.Type.IsObject && field.Type.ReferencedName != null &&
-			schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef)
+			schema.ByName.TryGetValue(field.Type.ReferencedName, out var def))
 		{
-			align = 4;
-			size = 4;
-			return;
+			if (def is EnumDef ed)
+				return ed.Underlying.InlineSize();
+			return 4;
 		}
-		size = FieldSize(field.Type, schema, out align);
+		return field.Type.Base.InlineSize();
 	}
 
 	static void AssignStructLayout(Schema schema)

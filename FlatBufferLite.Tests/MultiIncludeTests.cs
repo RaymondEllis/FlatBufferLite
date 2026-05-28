@@ -69,9 +69,9 @@ public class MultiIncludeTests
 
 		var pos = sprite.Fields.Single(f => f.Name == "pos");
 		var normal = sprite.Fields.Single(f => f.Name == "normal");
-		Assert.Equal(12, pos.InlineOffset);      // Vec2 = 8 bytes
-		Assert.Equal(0, normal.InlineOffset);    // Vec3 = 12 bytes
-		Assert.Equal(20, sprite.InlineSize);     // 12 + 8 = 20
+		Assert.Equal(0, pos.InlineOffset);
+		Assert.Equal(8, normal.InlineOffset);   // Vec2 = 8 bytes
+		Assert.Equal(20, sprite.InlineSize);    // 8 + 12 = 20
 	}
 
 	[Fact]
