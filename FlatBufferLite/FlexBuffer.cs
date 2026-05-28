@@ -25,12 +25,12 @@ public readonly struct FlexBufferValue
 	internal readonly double FloatValue;
 	internal readonly int Offset;
 
-	FlexBufferValue(FlexBufferType type, long intValue, ulong uintValue, double floatValue, int offset)
+	FlexBufferValue(FlexBufferType type, long signedInt, ulong unsignedInt, double floatingPoint, int offset)
 	{
 		Type = type;
-		IntValue = intValue;
-		UIntValue = uintValue;
-		FloatValue = floatValue;
+		IntValue = signedInt;
+		UIntValue = unsignedInt;
+		FloatValue = floatingPoint;
 		Offset = offset;
 	}
 
@@ -135,7 +135,7 @@ public ref struct FlexBufferBuilder
 			case FlexBufferType.Blob:
 			case FlexBufferType.Vector:
 				int offset = _pos - value.Offset;
-				if (offset <= 0)
+				if (offset < 0)
 					throw new InvalidOperationException("FlexBuffer child values must be created before the value that references them.");
 				WriteUInt((ulong)offset, width);
 				break;

@@ -47,6 +47,16 @@ public class FlexBufferTests
 	}
 
 	[Fact]
+	public void EmptyVector_RoundTrips()
+	{
+		Span<byte> buf = stackalloc byte[128];
+		var b = new FlexBufferBuilder(buf);
+		var vec = b.CreateVector(ReadOnlySpan<FlexBufferValue>.Empty);
+
+		Assert.Equal(0, FlexBuffer.GetRoot(b.Finish(vec)).AsVector.Length);
+	}
+
+	[Fact]
 	public void GeneratedFlexbufferAccessor_ReadsUByteVectorAsFlexBuffer()
 	{
 		Span<byte> flexBuf = stackalloc byte[128];
