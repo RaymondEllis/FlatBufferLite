@@ -62,4 +62,41 @@ public class FlexBufferTests
 		var flex = Attr.FlexRef.GetRootAs(tableBytes).DataFlexBuffer;
 		Assert.Equal(123UL, flex.AsUInt64);
 	}
+
+	[Fact]
+	public void InvalidRoot_Throws()
+	{
+		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(stackalloc byte[] { 0, 1 }));
+		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(stackalloc byte[] { 0, 3, 0 }));
+	}
+
+	[Fact]
+	public void WrongType_Throws()
+	{
+		Assert.Throws<InvalidOperationException>(() =>
+		{
+			Span<byte> buf = stackalloc byte[128];
+			var b = new FlexBufferBuilder(buf);
+			_ = FlexBuffer.GetRoot(b.Finish(FlexBufferValue.Int(1))).AsString;
+		});
+	}
+
+	[Fact]
+	public void IndirectOffsetOutsideBuffer_Throws()
+	{
+		byte[] bytes = { 10, 1, (byte)((byte)FlexBufferType.String << 2) };
+
+		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(bytes).AsString);
+	}
+
+	[Fact]
+	public void BuilderBufferTooSmall_Throws()
+	{
+		Assert.Throws<InvalidOperationException>(() =>
+		{
+			Span<byte> buf = stackalloc byte[4];
+			var b = new FlexBufferBuilder(buf);
+			b.Finish(FlexBufferValue.Int(1));
+		});
+	}
 }
