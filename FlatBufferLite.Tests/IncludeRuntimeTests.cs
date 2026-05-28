@@ -7,12 +7,12 @@ public class IncludeRuntimeTests
 	[Fact]
 	public void IncludedStruct_CanBeUsedInTable()
 	{
-		Span<byte> buf = stackalloc byte[Chunk.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[ChunkRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var chunk = Chunk.Create(ref b, pos: new Vector3I { X = 10, Y = 20, Z = 30 });
+		var chunk = ChunkRef.Create(ref b, pos: new Vector3I { X = 10, Y = 20, Z = 30 });
 
 		var span = b.Finish();
-		var read = Chunk.GetRootAs(span);
+		var read = ChunkRef.GetRootAs(span);
 		Assert.Equal(10, read.Pos.X);
 		Assert.Equal(20, read.Pos.Y);
 		Assert.Equal(30, read.Pos.Z);
@@ -27,7 +27,7 @@ public class IncludeRuntimeTests
 	[Fact]
 	public void IncludedStruct_ZeroAlloc_RoundTrip()
 	{
-		var buf = new byte[Chunk.GetMaxSize()];
+		var buf = new byte[ChunkRef.GetMaxSize()];
 		Warm(buf);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
@@ -43,9 +43,9 @@ public class IncludeRuntimeTests
 		static void Round(Span<byte> buf)
 		{
 			var b = new FlatBufferBuilder(buf);
-			Chunk.Create(ref b, pos: new Vector3I { X = 1, Y = 2, Z = 3 });
+			ChunkRef.Create(ref b, pos: new Vector3I { X = 1, Y = 2, Z = 3 });
 			var span = b.Finish();
-			var read = Chunk.GetRootAs(span);
+			var read = ChunkRef.GetRootAs(span);
 			_ = read.Pos.X + read.Pos.Y + read.Pos.Z;
 		}
 	}

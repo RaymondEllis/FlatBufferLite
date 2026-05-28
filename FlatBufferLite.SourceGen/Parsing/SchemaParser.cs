@@ -544,8 +544,8 @@ public sealed class SchemaParser
 				case "original_order":
 					table.OriginalOrder = true;
 					break;
-				case "native_struct":
-					table.NativeStruct = true;
+				case "plain_struct":
+					table.PlainStruct = true;
 					break;
 				default:
 					if (Match(TokenKind.Colon))

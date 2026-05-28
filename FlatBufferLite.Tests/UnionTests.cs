@@ -118,16 +118,16 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_RectVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Scene.GetMaxSize(nameByteCount: 10)];
+		Span<byte> buf = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 10)];
 		var b = new FlatBufferBuilder(buf);
 
 		var sceneName = b.CreateString("scene-rect"u8);
 
-		var rectB = Rect.Create(ref b, w: 3.0f, h: 7.0f);
-		Scene.Create(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);
+		var rectB = RectRef.Create(ref b, w: 3.0f, h: 7.0f);
+		SceneRef.Create(ref b, name: sceneName, shapeType: ShapeKind.Rect, shape: rectB.BufferPos, count: 42);
 
 		var span = b.Finish();
-		var read = Scene.GetRootAs(span);
+		var read = SceneRef.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.Rect, read.ShapeType);
 		Assert.Equal(42, read.Count);
@@ -142,14 +142,14 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_CircleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[SceneRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 
-		var cb = Circle.Create(ref b, r: 5.5f);
-		Scene.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 7);
+		var cb = CircleRef.Create(ref b, r: 5.5f);
+		SceneRef.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 7);
 
 		var span = b.Finish();
-		var read = Scene.GetRootAs(span);
+		var read = SceneRef.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.Circle, read.ShapeType);
 		Assert.Equal(7, read.Count);
@@ -162,12 +162,12 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_AbsentUnion_IsNone()
 	{
-		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[SceneRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		Scene.Create(ref b);
+		SceneRef.Create(ref b);
 
 		var span = b.Finish();
-		var read = Scene.GetRootAs(span);
+		var read = SceneRef.GetRootAs(span);
 
 		Assert.Equal(ShapeKind.NONE, read.ShapeType);
 		Assert.False(read.Shape.HasValue);
@@ -177,14 +177,14 @@ public class UnionTests
 	[Fact]
 	public void SourceGen_FieldAfterUnion_CorrectOffset()
 	{
-		Span<byte> buf = stackalloc byte[Scene.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[SceneRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
 
-		var cb = Circle.Create(ref b, r: 1.0f);
-		Scene.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 99);
+		var cb = CircleRef.Create(ref b, r: 1.0f);
+		SceneRef.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, count: 99);
 
 		var span = b.Finish();
-		var read = Scene.GetRootAs(span);
+		var read = SceneRef.GetRootAs(span);
 
 		Assert.Equal(99, read.Count);
 		Assert.Equal(ShapeKind.Circle, read.ShapeType);

@@ -202,8 +202,8 @@ public class SourceGenFeatureTests
 		var schema = parser.Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 
-		var aIdx = code.IndexOf("public readonly ref partial struct A");
-		var bIdx = code.IndexOf("public readonly ref partial struct B");
+		var aIdx = code.IndexOf("public readonly ref partial struct ARef");
+		var bIdx = code.IndexOf("public readonly ref partial struct BRef");
 		Assert.True(aIdx >= 0);
 		Assert.True(bIdx >= 0);
 
@@ -302,11 +302,11 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void NativeStruct_StringsEmitByteArrays()
+	public void PlainStruct_StringsEmitByteArrays()
 	{
 		var source = """
-			attribute "native_struct";
-			table Native (native_struct) {
+			attribute "plain_struct";
+			table Native (plain_struct) {
 				name: string;
 				names: [string];
 			}
@@ -317,22 +317,22 @@ public class SourceGenFeatureTests
 
 		Assert.Contains("public byte[]? Name;", code);
 		Assert.Contains("public byte[][]? Names;", code);
-		Assert.Contains("public static void Deserialize(Span<byte> buffer, ref NativeNative value)", code);
-		Assert.Contains("public void ToNative(ref NativeNative value)", code);
+		Assert.Contains("public static void Deserialize(Span<byte> buffer, ref Native value)", code);
+		Assert.Contains("public void ToPlain(ref Native value)", code);
 		Assert.Contains("value.Name = Name.IsValid ? Name.AsBytes.ToArray() : null", code);
 		Assert.Contains("builder.CreateString(value.Name)", code);
 		Assert.DoesNotContain("Encoding.UTF8", code);
 	}
 
 	[Fact]
-	public void NativeStruct_CustomCollection_EmitsCustomCollectionFields()
+	public void PlainStruct_CustomCollection_EmitsCustomCollectionFields()
 	{
 		var source = """
-			attribute "native_struct";
+			attribute "plain_struct";
 			attribute "CustomCollection";
 			enum Quality : ubyte { Low = 0, High = 1 }
-			table Item (native_struct) { id: int; }
-			table Native (native_struct) {
+			table Item (plain_struct) { id: int; }
+			table Native (plain_struct) {
 				name: string (CustomCollection);
 				scores: [int] (CustomCollection);
 				names: [string] (CustomCollection);
@@ -347,18 +347,18 @@ public class SourceGenFeatureTests
 		Assert.True(schema.Tables[1].Fields[0].CustomCollection);
 		Assert.Contains("public IFlatBufferCollection<byte>? Name;", code);
 		Assert.Contains("public IFlatBufferCollection<int>? Scores;", code);
-		Assert.Contains("public IFlatBufferNativeVector<IFlatBufferCollection<byte>>? Names;", code);
-		Assert.Contains("public IFlatBufferNativeVector<ItemNative>? Items;", code);
+		Assert.Contains("public IFlatBufferPlainVector<IFlatBufferCollection<byte>>? Names;", code);
+		Assert.Contains("public IFlatBufferPlainVector<Item>? Items;", code);
 		Assert.Contains("public IFlatBufferCollection<Quality>? Qualities;", code);
 		Assert.Contains("builder.CreateString(value.Name.AsReadOnlySpan())", code);
 		Assert.Contains("builder.CreateVector(value.Scores.AsReadOnlySpan())", code);
 		Assert.Contains("builder.CreateString(value.Names[i].AsReadOnlySpan())", code);
 		Assert.Contains("FlatBufferCollections.Create<byte>", code);
 		Assert.Contains("FlatBufferCollections.Create<int>", code);
-		Assert.Contains("FlatBufferNativeVectors.Create<IFlatBufferCollection<byte>>", code);
-		Assert.Contains("FlatBufferNativeVectors.Create<ItemNative>", code);
+		Assert.Contains("FlatBufferPlainVectors.Create<IFlatBufferCollection<byte>>", code);
+		Assert.Contains("FlatBufferPlainVectors.Create<Item>", code);
 		Assert.Contains("FlatBufferCollections.EnsureCreate<Quality>();", code);
-		Assert.Contains("FlatBufferNativeVectors.EnsureCreate<ItemNative>();", code);
+		Assert.Contains("FlatBufferPlainVectors.EnsureCreate<Item>();", code);
 		Assert.Contains("__NamesTarget.Resize(__Names.Length);", code);
 		Assert.Contains("var __NamesItems = __NamesTarget.AsSpan();", code);
 		Assert.Contains("var __NamesSource = __Names[i];", code);
@@ -423,10 +423,10 @@ public class SourceGenFeatureTests
 	[Fact]
 	public void GetMaxSize_CoversScalarOnlyBuffer()
 	{
-		int needed = Sample.Player.GetMaxSize();
+		int needed = Sample.PlayerRef.GetMaxSize();
 		Span<byte> buf = stackalloc byte[needed];
 		var b = new FlatBufferBuilder(buf);
-		FlatBufferLite.Sample.Player.Create(ref b, id: 1, hp: 50);
+		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 1, hp: 50);
 		var span = b.Finish();
 		Assert.True(needed >= span.Length);
 	}
@@ -436,12 +436,12 @@ public class SourceGenFeatureTests
 	{
 		const int nameBytes = 5;
 		const int invCount = 3;
-		int needed = Sample.Player.GetMaxSize(nameByteCount: nameBytes, inventoryCount: invCount);
+		int needed = Sample.PlayerRef.GetMaxSize(nameByteCount: nameBytes, inventoryCount: invCount);
 		var buf = new byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		var name = b.CreateString("Alice"u8);
 		var inv = b.CreateVector<int>(new[] { 10, 20, 30 });
-		FlatBufferLite.Sample.Player.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
+		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
 		var bytes = b.Finish();
 		Assert.True(needed >= bytes.Length);
 	}
@@ -545,7 +545,7 @@ public class SourceGenFeatureTests
 		bool threw = false;
 		try
 		{
-			FlatBufferLite.Req.Doc.Create(ref b, title: default);
+			FlatBufferLite.Req.DocRef.Create(ref b, title: default);
 		}
 		catch (InvalidOperationException)
 		{
@@ -576,7 +576,7 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public Entry LookupByKey(int key)", code);
+		Assert.Contains("public EntryRef LookupByKey(int key)", code);
 	}
 
 	[Fact]
@@ -588,7 +588,7 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public Item LookupByKey(ReadOnlySpan<byte> key)", code);
+		Assert.Contains("public ItemRef LookupByKey(ReadOnlySpan<byte> key)", code);
 	}
 
 	[Fact]
@@ -601,17 +601,17 @@ public class SourceGenFeatureTests
 		var n2 = b.CreateString("two"u8);
 		var n3 = b.CreateString("three"u8);
 
-		var e1 = FlatBufferLite.Attr.Entry.Create(ref b, id: 10, name: n1);
-		var e2 = FlatBufferLite.Attr.Entry.Create(ref b, id: 20, name: n2);
-		var e3 = FlatBufferLite.Attr.Entry.Create(ref b, id: 30, name: n3);
+		var e1 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 10, name: n1);
+		var e2 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 20, name: n2);
+		var e3 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 30, name: n3);
 
 		ReadOnlySpan<int> offsets = stackalloc int[] { e1.BufferPos, e2.BufferPos, e3.BufferPos };
 		var vec = b.CreateVectorOfOffsets(offsets);
 
-		var outer = FlatBufferLite.Attr.Inner.Create(ref b, value: 0);
+		var outer = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
 		_ = b.Finish();
 
-		var v = new FlatBufferLite.Attr.EntryVector(buf, vec);
+		var v = new FlatBufferLite.Attr.EntryRefVector(buf, vec);
 		Assert.Equal(3, v.Length);
 
 		var found = v.LookupByKey(20);
@@ -633,18 +633,18 @@ public class SourceGenFeatureTests
 		var n2 = b.CreateString("ten"u8);
 		var n3 = b.CreateString("twenty"u8);
 
-		var e1 = FlatBufferLite.Attr.Entry.Create(ref b, id: 30, name: n1);
-		var e2 = FlatBufferLite.Attr.Entry.Create(ref b, id: 10, name: n2);
-		var e3 = FlatBufferLite.Attr.Entry.Create(ref b, id: 20, name: n3);
+		var e1 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 30, name: n1);
+		var e2 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 10, name: n2);
+		var e3 = FlatBufferLite.Attr.EntryRef.Create(ref b, id: 20, name: n3);
 
 		// Store in sorted key order for binary search
 		ReadOnlySpan<int> offsets = stackalloc int[] { e2.BufferPos, e3.BufferPos, e1.BufferPos };
 		var vec = b.CreateVectorOfOffsets(offsets);
 
-		var outer = FlatBufferLite.Attr.Inner.Create(ref b, value: 0);
+		var outer = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
 		_ = b.Finish();
 
-		var v = new FlatBufferLite.Attr.EntryVector(buf, vec);
+		var v = new FlatBufferLite.Attr.EntryRefVector(buf, vec);
 		Assert.Equal(3, v.Length);
 
 		var found10 = v.LookupByKey(10);
@@ -695,7 +695,7 @@ public class SourceGenFeatureTests
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("BlobNested", code);
-		Assert.Contains("Inner.GetRootAs(Blob.AsSpan)", code);
+		Assert.Contains("InnerRef.GetRootAs(Blob.AsSpan)", code);
 	}
 
 	[Fact]
@@ -703,16 +703,16 @@ public class SourceGenFeatureTests
 	{
 		Span<byte> innerBuf = stackalloc byte[128];
 		var ib = new FlatBufferBuilder(innerBuf);
-		FlatBufferLite.Attr.Inner.Create(ref ib, value: 42);
+		FlatBufferLite.Attr.InnerRef.Create(ref ib, value: 42);
 		var innerBytes = ib.Finish();
 
 		Span<byte> outerBuf = stackalloc byte[512];
 		var ob = new FlatBufferBuilder(outerBuf);
 		var blob = ob.CreateVector<byte>(MemoryMarshal.Cast<byte, byte>(innerBytes));
-		FlatBufferLite.Attr.Outer.Create(ref ob, blob: blob);
+		FlatBufferLite.Attr.OuterRef.Create(ref ob, blob: blob);
 		var outerBytes = ob.Finish();
 
-		var o = Attr.Outer.GetRootAs(outerBytes);
+		var o = Attr.OuterRef.GetRootAs(outerBytes);
 		var nested = o.BlobNested;
 		Assert.True(nested.IsValid);
 		Assert.Equal(42, nested.Value);

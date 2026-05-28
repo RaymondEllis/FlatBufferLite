@@ -6,7 +6,7 @@ public interface IFlatBufferCollection<T> : IList<T> where T : unmanaged
 	void ReplaceRange(ref FlatVector<T> items);
 }
 
-public interface IFlatBufferNativeVector<T> : IList<T>
+public interface IFlatBufferPlainVector<T> : IList<T>
 {
 	void Resize(int count);
 	Span<T> AsSpan();
@@ -18,9 +18,9 @@ public static class FlatBufferCollections<T> where T : unmanaged
 	public static bool CreateChecked;
 }
 
-public static class FlatBufferNativeVectors<T>
+public static class FlatBufferPlainVectors<T>
 {
-	public static Func<int, IFlatBufferNativeVector<T>>? Create;
+	public static Func<int, IFlatBufferPlainVector<T>>? Create;
 	public static bool CreateChecked;
 }
 
@@ -37,21 +37,21 @@ public static class FlatBufferCollections
 		FlatBufferCollections<T>.CreateChecked = true;
 	}
 
-	static void ThrowMissingCreate<T>() where T : unmanaged => throw new InvalidOperationException($"FlatBufferCollections<{typeof(T).Name}>.Create must be set before deserializing native custom collections.");
+	static void ThrowMissingCreate<T>() where T : unmanaged => throw new InvalidOperationException($"FlatBufferCollections<{typeof(T).Name}>.Create must be set before deserializing plain custom collections.");
 }
 
-public static class FlatBufferNativeVectors
+public static class FlatBufferPlainVectors
 {
-	public static IFlatBufferNativeVector<T> Create<T>(int items) => FlatBufferNativeVectors<T>.Create!(items);
+	public static IFlatBufferPlainVector<T> Create<T>(int items) => FlatBufferPlainVectors<T>.Create!(items);
 
 	public static void EnsureCreate<T>()
 	{
-		if (FlatBufferNativeVectors<T>.CreateChecked)
+		if (FlatBufferPlainVectors<T>.CreateChecked)
 			return;
-		if (FlatBufferNativeVectors<T>.Create == null)
+		if (FlatBufferPlainVectors<T>.Create == null)
 			ThrowMissingCreate<T>();
-		FlatBufferNativeVectors<T>.CreateChecked = true;
+		FlatBufferPlainVectors<T>.CreateChecked = true;
 	}
 
-	static void ThrowMissingCreate<T>() => throw new InvalidOperationException($"FlatBufferNativeVectors<{typeof(T).Name}>.Create must be set before deserializing native custom collections.");
+	static void ThrowMissingCreate<T>() => throw new InvalidOperationException($"FlatBufferPlainVectors<{typeof(T).Name}>.Create must be set before deserializing plain custom collections.");
 }

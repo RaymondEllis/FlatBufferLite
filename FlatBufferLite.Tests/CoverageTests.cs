@@ -7,12 +7,12 @@ public class CoverageTests
 	[Fact]
 	public void EnumDefault_AbsentField_ReturnsSchemaDefault()
 	{
-		Span<byte> buf = stackalloc byte[Entity.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[EntityRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		Entity.Create(ref b);
+		EntityRef.Create(ref b);
 
 		var span = b.Finish();
-		var e = Entity.GetRootAs(span);
+		var e = EntityRef.GetRootAs(span);
 
 		Assert.Equal(Direction.South, e.Dir);
 	}
@@ -20,13 +20,13 @@ public class CoverageTests
 	[Fact]
 	public void EnumDefault_ExplicitValue_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Entity.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[EntityRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var entity = Entity.Create(ref b);
+		var entity = EntityRef.Create(ref b);
 		entity.Dir = Direction.West;
 
 		var span = b.Finish();
-		var e = Entity.GetRootAs(span);
+		var e = EntityRef.GetRootAs(span);
 
 		Assert.Equal(Direction.West, e.Dir);
 	}
@@ -34,13 +34,13 @@ public class CoverageTests
 	[Fact]
 	public void VectorOfEnum_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Entity.GetMaxSize(tagsCount: 3)];
+		Span<byte> buf = stackalloc byte[EntityRef.GetMaxSize(tagsCount: 3)];
 		var b = new FlatBufferBuilder(buf);
 		var tags = b.CreateVector<byte>(new byte[] { (byte)Direction.North, (byte)Direction.East, (byte)Direction.West });
-		Entity.Create(ref b, tags: tags);
+		EntityRef.Create(ref b, tags: tags);
 
 		var span = b.Finish();
-		var e = Entity.GetRootAs(span);
+		var e = EntityRef.GetRootAs(span);
 
 		Assert.Equal(3, e.Tags.Length);
 		Assert.Equal((byte)Direction.North, e.Tags[0]);

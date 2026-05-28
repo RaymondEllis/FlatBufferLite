@@ -29,7 +29,8 @@ public sealed partial class CodeEmitter
 			{
 				if (def is TableDef)
 				{
-					_sb.Append("\tpublic ").Append(name).Append(' ').Append(propName).Append(" => new ").Append(name).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					string refName = name + "Ref";
+					_sb.Append("\tpublic ").Append(refName).Append(' ').Append(propName).Append(" => new ").Append(refName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 					return;
 				}
 				if (def is StructDef)
@@ -108,7 +109,7 @@ public sealed partial class CodeEmitter
 			string cs = elt.ToCSharpKeyword();
 			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType) && IsValidCSharpIdentifier(f.NestedFlatBufferType!))
-				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append(' ').Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append(".GetRootAs(").Append(propName).AppendLine(".AsSpan);");
+				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append("Ref ").Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append("Ref.GetRootAs(").Append(propName).AppendLine(".AsSpan);");
 			return;
 		}
 		if (elt == SchemaBaseType.String)
@@ -128,7 +129,8 @@ public sealed partial class CodeEmitter
 				}
 				if (def is TableDef)
 				{
-					_sb.Append("\tpublic ").Append(name).Append("Vector ").Append(propName).Append(" => new ").Append(name).Append("Vector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					string refName = name + "Ref";
+					_sb.Append("\tpublic ").Append(refName).Append("Vector ").Append(propName).Append(" => new ").Append(refName).Append("Vector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 					return;
 				}
 				if (def is EnumDef ed)

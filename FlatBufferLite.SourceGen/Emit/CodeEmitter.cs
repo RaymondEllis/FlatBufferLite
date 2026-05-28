@@ -122,8 +122,9 @@ public sealed partial class CodeEmitter
 
 	void EmitTable(TableDef t)
 	{
+		string refName = t.Name + "Ref";
 		_sb.AppendLine();
-		_sb.Append("public readonly ref partial struct ").AppendLine(t.Name);
+		_sb.Append("public readonly ref partial struct ").AppendLine(refName);
 		_sb.AppendLine("{");
 		_sb.AppendLine("\treadonly Span<byte> _buf;");
 		_sb.AppendLine("\treadonly int _pos;");
@@ -134,16 +135,16 @@ public sealed partial class CodeEmitter
 
 		EmitGetMaxSize(t);
 
-		_sb.Append("\tpublic ").Append(t.Name).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
+		_sb.Append("\tpublic ").Append(refName).AppendLine("(Span<byte> buffer, int position) { _buf = buffer; _pos = position; }");
 
 		EmitReserveConstructor(t);
 		EmitBuildConstructor(t);
 
-		_sb.Append("\tpublic static ").Append(t.Name).Append(" GetRootAs(Span<byte> buffer) => new ").Append(t.Name).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
+		_sb.Append("\tpublic static ").Append(refName).Append(" GetRootAs(Span<byte> buffer) => new ").Append(refName).AppendLine("(buffer, FlatBufferReader.GetRootOffset(buffer));");
 		_sb.AppendLine("\tpublic Span<byte> Buffer => _buf;");
 		_sb.AppendLine("\tpublic int BufferPos => _pos;");
 		_sb.AppendLine("\tpublic bool IsValid => _pos > 0;");
-		_sb.Append("\tpublic Offset<").Append(t.Name).Append("> AsOffset => new Offset<").Append(t.Name).AppendLine(">(_pos);");
+		_sb.Append("\tpublic Offset<").Append(refName).Append("> AsOffset => new Offset<").Append(refName).AppendLine(">(_pos);");
 
 		foreach (var f in t.Fields)
 		{
@@ -155,13 +156,13 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("\t[System.Diagnostics.CodeAnalysis.UnscopedRef]");
 		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
-		if (t.NativeStruct)
-			EmitNativeTableMethods(t);
+		if (t.PlainStruct)
+			EmitPlainTableMethods(t);
 
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
-		if (t.NativeStruct)
-			EmitNativeStruct(t);
+		if (t.PlainStruct)
+			EmitPlainStruct(t);
 	}
 }

@@ -1,7 +1,7 @@
-attribute "native_struct";
+attribute "plain_struct";
 attribute "CustomCollection";
 
-namespace FlatBufferLite.NativeStructs;
+namespace FlatBufferLite.PlainStructs;
 
 enum Quality : ubyte {
 	Low = 0,
@@ -13,14 +13,14 @@ struct Vec2 {
 	y: float;
 }
 
-table Item (native_struct) {
+table Item (plain_struct) {
 	id: int;
 	name: string;
 	pos: Vec2;
 	quality: Quality = High;
 }
 
-table Bag (native_struct) {
+table Bag (plain_struct) {
 	title: string;
 	scores: [int];
 	names: [string];
@@ -28,7 +28,7 @@ table Bag (native_struct) {
 	qualities: [Quality];
 }
 
-table CollectionBag (native_struct) {
+table CollectionBag (plain_struct) {
 	title: string (CustomCollection);
 	scores: [int] (CustomCollection);
 	names: [string] (CustomCollection);

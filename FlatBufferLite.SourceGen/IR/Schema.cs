@@ -41,7 +41,7 @@ public sealed class TableDef : ISchemaDef
 	public string Name = "";
 	public List<FieldDef> Fields = new();
 	public bool OriginalOrder;
-	public bool NativeStruct;
+	public bool PlainStruct;
 	public int InlineSize;
 	public int InlineAlign;
 	public int SlotCount;

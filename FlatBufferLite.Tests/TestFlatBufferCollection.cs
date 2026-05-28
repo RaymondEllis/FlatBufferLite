@@ -31,10 +31,10 @@ sealed class TestFlatBufferCollection<T> : List<T>, IFlatBufferCollection<T> whe
 	}
 }
 
-sealed class TestFlatBufferNativeVector<T> : List<T>, IFlatBufferNativeVector<T>
+sealed class TestFlatBufferPlainVector<T> : List<T>, IFlatBufferPlainVector<T>
 {
-	public TestFlatBufferNativeVector() { }
-	public TestFlatBufferNativeVector(int capacity) : base(capacity) { }
+	public TestFlatBufferPlainVector() { }
+	public TestFlatBufferPlainVector(int capacity) : base(capacity) { }
 
 	public void Resize(int count)
 	{
