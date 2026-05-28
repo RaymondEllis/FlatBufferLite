@@ -204,7 +204,7 @@ EventRef.Create(ref builder, payload: payload);
 
 var eventRef = EventRef.GetRootAs(bytes);
 FlexBuffer payloadFlex = eventRef.PayloadFlexBuffer;
-long id = payloadFlex.AsVector[0].AsInt64;
+long firstValue = payloadFlex.AsVector[0].AsInt64;
 ```
 
 Supported FlexBuffer value kinds are null, bool, signed/unsigned integers, floats, strings, blobs, and heterogeneous vectors.
