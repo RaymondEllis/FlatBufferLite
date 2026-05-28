@@ -1,19 +1,22 @@
 # Kings orders
 
 - Prefer no code comments. If you write a comment think about if that code should be rewritten to be more clear instead.
-- Comments are allowed if they explain why something is done, but not how. The code should be clear enough to explain how it works without comments. Or if the comment is future looking or providing extra context.
+- Comments are allowed if they explain why something is done, but not how. The code should be clear about how it works without comments.
+- Comments are also allowed if the comment is future looking or providing extra context.
 - All code is C#.
 - Do not reply with syntax fixes.
-- Do not write "Clean Code" this codebase prioritizes performance and low-level optimizations.
+- Do not write abstractions for abstraction sake, this codebase prioritizes performance and low-level optimizations.
 - Look for race conditions and threading issues in multithreaded code.
 - Be aware of allocations, GC is bad.
 - `unsafe` code is allowed, only when necessary for performance.
-- We do not write standard .net code, we write high performance code.
-- Prefer fields over properties, and structs over classes, unless reference semantics are required. The performance difference with properties is significant and we should use structs to be more aware of allocations.
+- Fields over properties, the performance difference with properties is significant.
+- Structs over classes, unless reference semantics are required, structs can be more efficient in avoiding heap allocations and GC overhead.
 - Target .NET 10, Windows and Linux, best if we can be fully cross platform and no native libs.
 - KISS
 
 ## Docs
+
+See `README.md` for project overview, use this before searching the codebase to get a high level understanding of the project.
 
 ### FlatBuffers
 https://flatbuffers.dev/
