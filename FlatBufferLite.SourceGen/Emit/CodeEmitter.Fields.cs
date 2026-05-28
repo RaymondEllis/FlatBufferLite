@@ -103,13 +103,14 @@ public sealed partial class CodeEmitter
 	void EmitVectorReader(FieldDef f, string propName, int vto)
 	{
 		var elt = f.Type.ElementBase;
+		bool isUByteVector = elt == SchemaBaseType.UByte;
 		if (elt.IsScalar())
 		{
 			string cs = elt.ToCSharpKeyword();
 			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
-			if (elt == SchemaBaseType.UByte && f.IsFlexBuffer)
+			if (isUByteVector && f.IsFlexBuffer)
 				_sb.Append("\tpublic FlatFlexBuffer ").Append(propName).Append("Flex => new FlatFlexBuffer(").Append(propName).AppendLine(".AsSpan);");
-			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType) && IsValidCSharpIdentifier(f.NestedFlatBufferType!))
+			if (isUByteVector && !string.IsNullOrEmpty(f.NestedFlatBufferType) && IsValidCSharpIdentifier(f.NestedFlatBufferType!))
 				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append("Ref ").Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append("Ref.GetRootAs(").Append(propName).AppendLine(".AsSpan);");
 			return;
 		}

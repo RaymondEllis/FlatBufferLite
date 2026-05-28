@@ -83,13 +83,13 @@ public readonly ref struct FlatFlexBufferValue
 		_isValid = true;
 	}
 
-	public bool IsValid
+	public readonly bool IsValid
 	{
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get => _isValid;
 	}
 
-	public FlexBufferType Type
+	public readonly FlexBufferType Type
 	{
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get => _type;
@@ -116,12 +116,7 @@ public readonly ref struct FlatFlexBufferValue
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryGetInt64(out long value)
 	{
-		if (!TryGetInt64Core(out value))
-		{
-			value = default;
-			return false;
-		}
-		return true;
+		return TryGetInt64Core(out value);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -130,12 +125,7 @@ public readonly ref struct FlatFlexBufferValue
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryGetUInt64(out ulong value)
 	{
-		if (!TryGetUInt64Core(out value))
-		{
-			value = default;
-			return false;
-		}
-		return true;
+		return TryGetUInt64Core(out value);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -144,12 +134,7 @@ public readonly ref struct FlatFlexBufferValue
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryGetDouble(out double value)
 	{
-		if (!TryGetDoubleCore(out value))
-		{
-			value = default;
-			return false;
-		}
-		return true;
+		return TryGetDoubleCore(out value);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,7 +171,7 @@ public readonly ref struct FlatFlexBufferValue
 		return TryGetIndirectBytes(expectNullTerminator: _type == FlexBufferType.String, out utf8);
 	}
 
-	public ReadOnlySpan<byte> AsStringBytes => TryGetStringBytes(out var utf8) ? utf8 : default;
+	public readonly ReadOnlySpan<byte> AsStringBytes => TryGetStringBytes(out var utf8) ? utf8 : default;
 
 	public override string ToString()
 	{
@@ -206,7 +191,7 @@ public readonly ref struct FlatFlexBufferValue
 		return TryGetIndirectBytes(expectNullTerminator: false, out bytes);
 	}
 
-	public ReadOnlySpan<byte> AsBlobBytes => TryGetBlobBytes(out var bytes) ? bytes : default;
+	public readonly ReadOnlySpan<byte> AsBlobBytes => TryGetBlobBytes(out var bytes) ? bytes : default;
 
 	bool TryGetInt64Core(out long value)
 	{

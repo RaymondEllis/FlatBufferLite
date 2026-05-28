@@ -22,7 +22,7 @@ public class FlatFlexBufferTests
 	}
 
 	[Fact]
-	public void FlexbufferField_GeneratedAccessor_RoundTrips()
+	public void FlexBufferField_GeneratedAccessor_RoundTrips()
 	{
 		Span<byte> buf = stackalloc byte[256];
 		var b = new FlatBufferBuilder(buf);
