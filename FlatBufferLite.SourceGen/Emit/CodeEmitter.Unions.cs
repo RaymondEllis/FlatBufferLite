@@ -142,21 +142,17 @@ public sealed partial class CodeEmitter
 		_sb.Append("\tpublic ").Append(u.Name).AppendLine("(Span<byte> buffer, int position, byte tag) { _buf = buffer; _pos = position; Tag = tag; }");
 		if (allTables)
 			foreach (var m in u.Members)
-			{
-				string memberRefName = m.TypeName + "Ref";
-				_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(memberRefName).Append(" value) { _buf = value.Buffer; _pos = value.BufferPos; Tag = ").Append(m.Tag).AppendLine("; }");
-			}
+				_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(m.TypeName).Append("Ref").Append(" value) { _buf = value.Buffer; _pos = value.BufferPos; Tag = ").Append(m.Tag).AppendLine("; }");
 		_sb.Append("\tpublic object? Value => throw new NotImplementedException(\"Boxing not supported").Append(allTables ? ". Use TryGetAs." : ".").AppendLine("\");");
 		_sb.AppendLine("\tpublic bool HasValue => Tag != 0 && _pos > 0;");
 		if (allTables)
 			foreach (var m in u.Members)
 			{
-				string memberRefName = m.TypeName + "Ref";
 				_sb.AppendLine();
-				_sb.Append("\tpublic bool TryGetAs").Append(m.Name).Append("(out ").Append(memberRefName).AppendLine(" value)");
+				_sb.Append("\tpublic bool TryGetAs").Append(m.Name).Append("(out ").Append(m.TypeName).Append("Ref").AppendLine(" value)");
 				_sb.AppendLine("\t{");
 				_sb.Append("\t\tif (Tag != ").Append(m.Tag).AppendLine(") { value = default; return false; }");
-				_sb.Append("\t\tvalue = new ").Append(memberRefName).AppendLine("(_buf, _pos);");
+				_sb.Append("\t\tvalue = new ").Append(m.TypeName).Append("Ref").AppendLine("(_buf, _pos);");
 				_sb.AppendLine("\t\treturn true;");
 				_sb.AppendLine("\t}");
 			}

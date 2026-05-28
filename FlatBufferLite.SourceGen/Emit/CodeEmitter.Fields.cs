@@ -29,8 +29,7 @@ public sealed partial class CodeEmitter
 			{
 				if (def is TableDef)
 				{
-					string refName = name + "Ref";
-					_sb.Append("\tpublic ").Append(refName).Append(' ').Append(propName).Append(" => new ").Append(refName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					_sb.Append("\tpublic ").Append(name).Append("Ref").Append(' ').Append(propName).Append(" => new ").Append(name).Append("Ref").Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 					return;
 				}
 				if (def is StructDef)
@@ -129,8 +128,7 @@ public sealed partial class CodeEmitter
 				}
 				if (def is TableDef)
 				{
-					string refName = name + "Ref";
-					_sb.Append("\tpublic ").Append(refName).Append("Vector ").Append(propName).Append(" => new ").Append(refName).Append("Vector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					_sb.Append("\tpublic ").Append(name).Append("Ref").Append("Vector ").Append(propName).Append(" => new ").Append(name).Append("Ref").Append("Vector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 					return;
 				}
 				if (def is EnumDef ed)
