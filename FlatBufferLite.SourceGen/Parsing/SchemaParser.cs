@@ -760,7 +760,7 @@ public sealed class SchemaParser
 		{
 			int off = 0;
 			int maxAlign = 4; // soffset is 4-byte
-			foreach (var f in t.Fields)
+			foreach (var f in GetTableLayoutFields(t, schema))
 			{
 				if (f.Deprecated)
 				{
@@ -804,6 +804,59 @@ public sealed class SchemaParser
 			t.InlineSize = AlignUp(off, maxAlign);
 			t.InlineAlign = maxAlign;
 		}
+	}
+
+	static List<FieldDef> GetTableLayoutFields(TableDef table, Schema schema)
+	{
+		var fields = new List<FieldDef>(table.Fields);
+		if (table.OriginalOrder)
+			return fields;
+
+		var order = new Dictionary<FieldDef, (int Align, int Size, int DeclarationIndex)>(fields.Count);
+		for (int i = 0; i < fields.Count; i++)
+		{
+			var field = fields[i];
+			GetTableFieldLayoutHint(field, schema, out int align, out int size);
+			order[field] = (align, size, i);
+		}
+
+		fields.Sort((a, b) =>
+		{
+			var x = order[a];
+			var y = order[b];
+			int alignCmp = y.Align.CompareTo(x.Align);
+			if (alignCmp != 0)
+				return alignCmp;
+			int sizeCmp = y.Size.CompareTo(x.Size);
+			if (sizeCmp != 0)
+				return sizeCmp;
+			return x.DeclarationIndex.CompareTo(y.DeclarationIndex);
+		});
+		return fields;
+	}
+
+	static void GetTableFieldLayoutHint(FieldDef field, Schema schema, out int align, out int size)
+	{
+		if (field.Type.IsUnion)
+		{
+			align = 4;
+			size = 8;
+			return;
+		}
+		if (field.Type.IsString || field.Type.IsVector)
+		{
+			align = 4;
+			size = 4;
+			return;
+		}
+		if (field.Type.IsObject && field.Type.ReferencedName != null &&
+			schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef)
+		{
+			align = 4;
+			size = 4;
+			return;
+		}
+		size = FieldSize(field.Type, schema, out align);
 	}
 
 	static void AssignStructLayout(Schema schema)
