@@ -730,6 +730,19 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void FieldAttribute_Flexbuffer_AccessorEmitted()
+	{
+		var source = """
+			table Flex { data: [ubyte] (flexbuffer); }
+			root_type Flex;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("DataFlexBuffer", code);
+		Assert.Contains("FlexBuffer.GetRoot(Data.AsSpan)", code);
+	}
+
+	[Fact]
 	public void TypeAttribute_OriginalOrder_ParsedAndStored()
 	{
 		var source = """
