@@ -833,16 +833,17 @@ public sealed class SchemaParser
 
 	static int GetTableFieldSortSize(FieldDef field, Schema schema)
 	{
+		const int FlatBufferOffsetSize = 4;
 		if (field.Type.IsUnion)
-			return 4;
+			return FlatBufferOffsetSize;
 		if (field.Type.IsString || field.Type.IsVector)
-			return 4;
+			return FlatBufferOffsetSize;
 		if (field.Type.IsObject && field.Type.ReferencedName != null &&
 			schema.ByName.TryGetValue(field.Type.ReferencedName, out var def))
 		{
 			if (def is EnumDef ed)
 				return ed.Underlying.InlineSize();
-			return 4;
+			return FlatBufferOffsetSize;
 		}
 		return field.Type.Base.InlineSize();
 	}
