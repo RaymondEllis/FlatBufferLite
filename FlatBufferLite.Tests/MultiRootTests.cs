@@ -7,13 +7,13 @@ public class MultiRootTests
 	[Fact]
 	public void MultiRoot_RegionData_AutoMarksRoot()
 	{
-		Span<byte> buf = stackalloc byte[RegionData.GetMaxSize(nameByteCount: 7)];
+		Span<byte> buf = stackalloc byte[RegionDataRef.GetMaxSize(nameByteCount: 7)];
 		var b = new FlatBufferBuilder(buf);
 		var name = b.CreateString("region1"u8);
-		var region = RegionData.Create(ref b, id: 1, name: name);
+		var region = RegionDataRef.Create(ref b, id: 1, name: name);
 
 		var span = b.Finish();
-		var read = RegionData.GetRootAs(span);
+		var read = RegionDataRef.GetRootAs(span);
 		Assert.Equal(1, read.Id);
 		Assert.Equal("region1", read.Name.ToString());
 	}
@@ -21,26 +21,26 @@ public class MultiRootTests
 	[Fact]
 	public void MultiRoot_WorldIndexData_AutoMarksRoot()
 	{
-		Span<byte> buf = stackalloc byte[WorldIndexData.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[WorldIndexDataRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var world = WorldIndexData.Create(ref b, version: 42);
+		var world = WorldIndexDataRef.Create(ref b, version: 42);
 
 		var span = b.Finish();
-		var read = WorldIndexData.GetRootAs(span);
+		var read = WorldIndexDataRef.GetRootAs(span);
 		Assert.Equal(42, read.Version);
 	}
 
 	[Fact]
 	public void MarkAsRoot_ManuallyMarksNonRootTable()
 	{
-		Span<byte> buf = stackalloc byte[MetaData.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[MetaDataRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var meta = MetaData.Create(ref b);
+		var meta = MetaDataRef.Create(ref b);
 		meta.Tag = 99;
 		meta.MarkAsRoot(ref b);
 
 		var span = b.Finish();
-		var read = MetaData.GetRootAs(span);
+		var read = MetaDataRef.GetRootAs(span);
 		Assert.Equal(99, read.Tag);
 	}
 

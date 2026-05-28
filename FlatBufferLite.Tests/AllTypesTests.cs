@@ -7,9 +7,9 @@ public class AllTypesTests
 	[Fact]
 	public void Scalars_AllTypesRoundTrip()
 	{
-		Span<byte> buf = stackalloc byte[Scalars.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[ScalarsRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var sb = Scalars.Create(ref b);
+		var sb = ScalarsRef.Create(ref b);
 		sb.BoolVal = true;
 		sb.ByteVal = -5;
 		sb.UbyteVal = 200;
@@ -25,7 +25,7 @@ public class AllTypesTests
 		sb.DefaultBool = false;
 
 		var span = b.Finish();
-		var s = Scalars.GetRootAs(span);
+		var s = ScalarsRef.GetRootAs(span);
 
 		Assert.True(s.BoolVal);
 		Assert.Equal((sbyte)-5, s.ByteVal);
@@ -45,12 +45,12 @@ public class AllTypesTests
 	[Fact]
 	public void Scalars_DefaultsReturnedWhenAbsent()
 	{
-		Span<byte> buf = stackalloc byte[Scalars.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[ScalarsRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		Scalars.Create(ref b);
+		ScalarsRef.Create(ref b);
 
 		var span = b.Finish();
-		var s = Scalars.GetRootAs(span);
+		var s = ScalarsRef.GetRootAs(span);
 
 		Assert.False(s.BoolVal);
 		Assert.Equal((sbyte)0, s.ByteVal);
@@ -70,29 +70,29 @@ public class AllTypesTests
 	[Fact]
 	public void Score_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Score.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[ScoreRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var sb = Score.Create(ref b);
+		var sb = ScoreRef.Create(ref b);
 		sb.Value = 9_876_543_210L;
 		sb.MarkAsRoot(ref b);
 		var span = b.Finish();
-		var sc = Score.GetRootAs(span);
+		var sc = ScoreRef.GetRootAs(span);
 		Assert.Equal(9_876_543_210L, sc.Value);
 	}
 
 	[Fact]
 	public void Refs_AllFieldsRoundTrip()
 	{
-		Span<byte> buf = stackalloc byte[Refs.GetMaxSize(strValByteCount: 11)];
+		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize(strValByteCount: 11)];
 		var b = new FlatBufferBuilder(buf);
 
 		var hello = b.CreateString("hello world"u8);
 
-		var score = Score.Create(ref b, value: 42L);
-		var rb = Refs.Create(ref b, strVal: hello, scoreVal: score.AsOffset, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
+		var score = ScoreRef.Create(ref b, value: 42L);
+		var rb = RefsRef.Create(ref b, strVal: hello, scoreVal: score.AsOffset, vec2Val: new Vec2 { X = 3.0f, Y = -1.5f }, colorVal: Color.Blue, permsVal: Permissions.ReadWrite);
 		rb.MarkAsRoot(ref b);
 		var span = b.Finish();
-		var r = Refs.GetRootAs(span);
+		var r = RefsRef.GetRootAs(span);
 
 		Assert.Equal("hello world", r.StrVal.ToString());
 		Assert.Equal(42L, r.ScoreVal.Value);
@@ -106,10 +106,10 @@ public class AllTypesTests
 	[Fact]
 	public void Refs_AbsentRefsAreInvalid()
 	{
-		Span<byte> buf = stackalloc byte[Refs.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var rb = Refs.Create(ref b);
-		var r = new Refs(buf, rb.BufferPos);
+		var rb = RefsRef.Create(ref b);
+		var r = new RefsRef(buf, rb.BufferPos);
 
 		Assert.False(r.StrVal.IsValid);
 		Assert.False(r.ScoreVal.IsValid);
@@ -125,15 +125,15 @@ public class AllTypesTests
 		ReadOnlySpan<float> floats = stackalloc float[] { 1.0f, -1.0f, 0.5f };
 		ReadOnlySpan<long> longs = stackalloc long[] { long.MinValue, 0L, long.MaxValue };
 
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(intVecCount: 4, byteVecCount: 3, floatVecCount: 3, longVecCount: 3)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 4, byteVecCount: 3, floatVecCount: 3, longVecCount: 3)];
 		var b = new FlatBufferBuilder(buf);
 		var iv = b.CreateVector(ints);
 		var bv = b.CreateVector(bytes);
 		var fv = b.CreateVector(floats);
 		var lv = b.CreateVector(longs);
 
-		var vb = Vectors.Create(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
-		var v = new Vectors(buf, vb.BufferPos);
+		var vb = VectorsRef.Create(ref b, intVec: iv, byteVec: bv, floatVec: fv, longVec: lv);
+		var v = new VectorsRef(buf, vb.BufferPos);
 
 		var ri = v.IntVec.AsSpan;
 		Assert.Equal(4, ri.Length);
@@ -156,7 +156,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_StringVector_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(strVecCount: 3, strVecByteCount: 14)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(strVecCount: 3, strVecByteCount: 14)];
 		var b = new FlatBufferBuilder(buf);
 
 		int s0 = b.CreateString("alpha"u8);
@@ -165,8 +165,8 @@ public class AllTypesTests
 		ReadOnlySpan<int> offsets = stackalloc int[] { s0, s1, s2 };
 		var strVec = b.CreateVectorOfOffsets(offsets);
 
-		var vb = Vectors.Create(ref b, strVec: strVec);
-		var fv = new Vectors(buf, vb.BufferPos).StrVec;
+		var vb = VectorsRef.Create(ref b, strVec: strVec);
+		var fv = new VectorsRef(buf, vb.BufferPos).StrVec;
 
 		Assert.Equal(3, fv.Length);
 		Assert.Equal("alpha", fv[0].ToString());
@@ -183,12 +183,12 @@ public class AllTypesTests
 			new Vec2 { X = -3.5f, Y = 4.25f },
 			new Vec2 { X = 0.0f, Y = -0.5f },
 		};
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(vec2VecCount: 3)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(vec2VecCount: 3)];
 		var b = new FlatBufferBuilder(buf);
 		var vv = b.CreateVector(vecs);
 
-		var vb = Vectors.Create(ref b, vec2Vec: vv);
-		var fv = new Vectors(buf, vb.BufferPos).Vec2Vec;
+		var vb = VectorsRef.Create(ref b, vec2Vec: vv);
+		var fv = new VectorsRef(buf, vb.BufferPos).Vec2Vec;
 
 		Assert.Equal(3, fv.Length);
 		var s = fv.AsSpan;
@@ -200,11 +200,11 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_EmptyVectorIsValid()
 	{
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize(intVecCount: 0)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
-		var vb = Vectors.Create(ref b, intVec: empty);
-		var fv = new Vectors(buf, vb.BufferPos).IntVec;
+		var vb = VectorsRef.Create(ref b, intVec: empty);
+		var fv = new VectorsRef(buf, vb.BufferPos).IntVec;
 
 		Assert.True(fv.IsValid);
 		Assert.Equal(0, fv.Length);
@@ -213,10 +213,10 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_AbsentVectorIsInvalid()
 	{
-		Span<byte> buf = stackalloc byte[Vectors.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var vb = Vectors.Create(ref b);
-		var v = new Vectors(buf, vb.BufferPos);
+		var vb = VectorsRef.Create(ref b);
+		var v = new VectorsRef(buf, vb.BufferPos);
 
 		Assert.False(v.IntVec.IsValid);
 		Assert.False(v.StrVec.IsValid);
@@ -234,10 +234,10 @@ public class AllTypesTests
 	[Fact]
 	public void BitFlags_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[Flagged.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[FlaggedRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var fb = Flagged.Create(ref b, perms: Flags.Read | Flags.Execute);
-		var f = new Flagged(buf, fb.BufferPos);
+		var fb = FlaggedRef.Create(ref b, perms: Flags.Read | Flags.Execute);
+		var f = new FlaggedRef(buf, fb.BufferPos);
 		Assert.Equal(Flags.Read | Flags.Execute, f.Perms);
 		Assert.Equal(5u, (uint)f.Perms);
 	}
@@ -245,25 +245,25 @@ public class AllTypesTests
 	[Fact]
 	public void BitFlags_DefaultIsZero()
 	{
-		Span<byte> buf = stackalloc byte[Flagged.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[FlaggedRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var fb = Flagged.Create(ref b);
-		var f = new Flagged(buf, fb.BufferPos);
+		var fb = FlaggedRef.Create(ref b);
+		var f = new FlaggedRef(buf, fb.BufferPos);
 		Assert.Equal(0u, (uint)f.Perms);
 	}
 
 	[Fact]
 	public void Union_CircleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 9, tagByteCount: 11)];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 9, tagByteCount: 11)];
 		var b = new FlatBufferBuilder(buf);
 
 		var myCircle = b.CreateString("my-circle"u8);
 		var afterUnion = b.CreateString("after-union"u8);
 
-		var cb = Circle.Create(ref b, radius: 5.0f);
-		var wu = WithUnion.Create(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: afterUnion);
-		var read = new WithUnion(buf, wu.BufferPos);
+		var cb = CircleRef.Create(ref b, radius: 5.0f);
+		var wu = WithUnionRef.Create(ref b, name: myCircle, value: 99, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: afterUnion);
+		var read = new WithUnionRef(buf, wu.BufferPos);
 
 		Assert.Equal("my-circle", read.Name.ToString());
 		Assert.Equal(99, read.Value);
@@ -279,14 +279,14 @@ public class AllTypesTests
 	[Fact]
 	public void Union_RectangleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(nameByteCount: 7)];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 7)];
 		var b = new FlatBufferBuilder(buf);
 
 		var nameOff = b.CreateString("my-rect"u8);
 
-		var rb = Rectangle.Create(ref b, width: 3.0f, height: 7.5f);
-		var wu = WithUnion.Create(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.BufferPos);
-		var read = new WithUnion(buf, wu.BufferPos);
+		var rb = RectangleRef.Create(ref b, width: 3.0f, height: 7.5f);
+		var wu = WithUnionRef.Create(ref b, name: nameOff, value: 7, shapeType: ShapeKind.Rectangle, shape: rb.BufferPos);
+		var read = new WithUnionRef(buf, wu.BufferPos);
 
 		Assert.Equal(ShapeKind.Rectangle, read.ShapeType);
 		var s = read.Shape;
@@ -299,10 +299,10 @@ public class AllTypesTests
 	[Fact]
 	public void Union_AbsentUnionIsNone()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize()];
 		var b = new FlatBufferBuilder(buf);
-		var wu = WithUnion.Create(ref b);
-		var read = new WithUnion(buf, wu.BufferPos);
+		var wu = WithUnionRef.Create(ref b);
+		var read = new WithUnionRef(buf, wu.BufferPos);
 
 		Assert.Equal(ShapeKind.NONE, read.ShapeType);
 		Assert.False(read.Shape.HasValue);
@@ -311,14 +311,14 @@ public class AllTypesTests
 	[Fact]
 	public void Union_FieldAfterUnion_CorrectVTableOffset()
 	{
-		Span<byte> buf = stackalloc byte[WithUnion.GetMaxSize(tagByteCount: 8)];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(tagByteCount: 8)];
 		var b = new FlatBufferBuilder(buf);
 
 		var sentinel = b.CreateString("sentinel"u8);
 
-		var cb = Circle.Create(ref b, radius: 1.0f);
-		var wu = WithUnion.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: sentinel);
-		var read = new WithUnion(buf, wu.BufferPos);
+		var cb = CircleRef.Create(ref b, radius: 1.0f);
+		var wu = WithUnionRef.Create(ref b, shapeType: ShapeKind.Circle, shape: cb.BufferPos, tag: sentinel);
+		var read = new WithUnionRef(buf, wu.BufferPos);
 
 		Assert.Equal("sentinel", read.Tag.ToString());
 		Assert.Equal(ShapeKind.Circle, read.ShapeType);

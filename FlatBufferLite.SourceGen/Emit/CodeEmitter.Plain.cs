@@ -4,57 +4,57 @@ namespace FlatBufferLite.SourceGen.Emit;
 
 public sealed partial class CodeEmitter
 {
-	static string NativeName(TableDef table) => table.Name + "Native";
+	static string PlainName(TableDef table) => table.Name;
 
-	void EmitNativeStruct(TableDef table)
+	void EmitPlainStruct(TableDef table)
 	{
 		_sb.AppendLine();
-		_sb.Append("public partial struct ").AppendLine(NativeName(table));
+		_sb.Append("public partial struct ").AppendLine(PlainName(table));
 		_sb.AppendLine("{");
 		foreach (var field in table.Fields)
 		{
 			if (field.Deprecated)
 				continue;
-			var typeName = NativeFieldType(field);
+			var typeName = PlainFieldType(field);
 			if (typeName == null)
 				continue;
 			_sb.Append("\tpublic ").Append(typeName).Append(' ').Append(ToPascalCase(field.Name)).AppendLine(";");
 		}
-		EmitNativeCollectionStaticConstructor(table);
+		EmitPlainCollectionStaticConstructor(table);
 
 		_sb.AppendLine();
-		_sb.Append("\tpublic static void Deserialize(Span<byte> buffer, ref ").Append(NativeName(table)).Append(" value) => ").Append(table.Name).AppendLine(".GetRootAs(buffer).ToNative(ref value);");
+		_sb.Append("\tpublic static void Deserialize(Span<byte> buffer, ref ").Append(PlainName(table)).Append(" value) => ").Append(table.Name).Append("Ref").AppendLine(".GetRootAs(buffer).ToPlain(ref value);");
 		_sb.AppendLine();
-		_sb.Append("\tpublic static ").Append(table.Name).Append(" Serialize(ref FlatBufferBuilder builder, in ").Append(NativeName(table)).AppendLine(" value)");
+		_sb.Append("\tpublic static ").Append(table.Name).Append("Ref").Append(" Serialize(ref FlatBufferBuilder builder, in ").Append(PlainName(table)).AppendLine(" value)");
 		_sb.AppendLine("\t{");
-		EmitNativeCreateLocals(table, "\t\t");
-		_sb.Append("\t\treturn ").Append(table.Name).Append(".Create(ref builder");
+		EmitPlainCreateLocals(table, "\t\t");
+		_sb.Append("\t\treturn ").Append(table.Name).Append("Ref").Append(".Create(ref builder");
 		foreach (var field in table.Fields)
 		{
-			if (field.Deprecated || NativeFieldType(field) == null)
+			if (field.Deprecated || PlainFieldType(field) == null)
 				continue;
-			_sb.Append(", ").Append(ToCamelCase(field.Name)).Append(": ").Append(NativeCreateArgument(field));
+			_sb.Append(", ").Append(ToCamelCase(field.Name)).Append(": ").Append(PlainCreateArgument(field));
 		}
 		_sb.AppendLine(");");
 		_sb.AppendLine("\t}");
 		_sb.AppendLine("}");
 	}
 
-	void EmitNativeTableMethods(TableDef table)
+	void EmitPlainTableMethods(TableDef table)
 	{
 		_sb.AppendLine();
-		_sb.Append("\tpublic void ToNative(ref ").Append(NativeName(table)).AppendLine(" value)");
+		_sb.Append("\tpublic void ToPlain(ref ").Append(PlainName(table)).AppendLine(" value)");
 		_sb.AppendLine("\t{");
 		foreach (var field in table.Fields)
 		{
-			if (field.Deprecated || NativeFieldType(field) == null)
+			if (field.Deprecated || PlainFieldType(field) == null)
 				continue;
-			EmitNativeReadAssign(field, "\t\t");
+			EmitPlainReadAssign(field, "\t\t");
 		}
 		_sb.AppendLine("\t}");
 	}
 
-	void EmitNativeCollectionStaticConstructor(TableDef table)
+	void EmitPlainCollectionStaticConstructor(TableDef table)
 	{
 		var collectionTypes = new System.Collections.Generic.List<string>();
 		var listTypes = new System.Collections.Generic.List<string>();
@@ -85,25 +85,25 @@ public sealed partial class CodeEmitter
 			{
 				if (def is StructDef || def is EnumDef)
 					Add(collectionTypes, field.Type.ReferencedName);
-				else if (def is TableDef nestedTable && nestedTable.NativeStruct)
-					Add(listTypes, NativeName(nestedTable));
+				else if (def is TableDef nestedTable && nestedTable.PlainStruct)
+					Add(listTypes, PlainName(nestedTable));
 			}
 		}
 		if (collectionTypes.Count == 0 && listTypes.Count == 0)
 			return;
 		_sb.AppendLine();
-		_sb.Append("\tstatic ").Append(NativeName(table)).AppendLine("()");
+		_sb.Append("\tstatic ").Append(PlainName(table)).AppendLine("()");
 		_sb.AppendLine("\t{");
 		foreach (var type in collectionTypes)
 			_sb.Append("\t\tFlatBufferCollections.EnsureCreate<").Append(type).AppendLine(">();");
 		foreach (var type in listTypes)
-			_sb.Append("\t\tFlatBufferNativeVectors.EnsureCreate<").Append(type).AppendLine(">();");
+			_sb.Append("\t\tFlatBufferPlainVectors.EnsureCreate<").Append(type).AppendLine(">();");
 		_sb.AppendLine("\t}");
 	}
 
-	string? NativeFieldType(FieldDef field) => NativeFieldType(field.Type, field.CustomCollection);
+	string? PlainFieldType(FieldDef field) => PlainFieldType(field.Type, field.CustomCollection);
 
-	string? NativeFieldType(TypeRef type, bool customCollection = false)
+	string? PlainFieldType(TypeRef type, bool customCollection = false)
 	{
 		if (type.Base.IsScalar())
 			return ScalarCSharpType(type, out _);
@@ -114,37 +114,37 @@ public sealed partial class CodeEmitter
 		if (type.IsObject && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
 		{
 			if (def is TableDef table)
-				return table.NativeStruct ? NativeName(table) + "?" : null;
+				return table.PlainStruct ? PlainName(table) + "?" : null;
 			if (def is StructDef || def is EnumDef)
 				return type.ReferencedName;
 		}
 		if (type.IsVector)
-			return NativeVectorFieldType(type, customCollection);
+			return PlainVectorFieldType(type, customCollection);
 		return null;
 	}
 
-	string? NativeVectorFieldType(TypeRef type, bool customCollection)
+	string? PlainVectorFieldType(TypeRef type, bool customCollection)
 	{
 		if (!customCollection)
 		{
-			var elementType = NativeVectorElementType(type);
+			var elementType = PlainVectorElementType(type);
 			return elementType == null ? null : elementType + "[]?";
 		}
 		if (type.ElementBase.IsScalar())
 			return "IFlatBufferCollection<" + type.ElementBase.ToCSharpKeyword() + ">?";
 		if (type.ElementBase == SchemaBaseType.String)
-			return "IFlatBufferNativeVector<IFlatBufferCollection<byte>>?";
+			return "IFlatBufferPlainVector<IFlatBufferCollection<byte>>?";
 		if (type.ElementBase == SchemaBaseType.Obj && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
 		{
 			if (def is StructDef || def is EnumDef)
 				return "IFlatBufferCollection<" + type.ReferencedName + ">?";
 			if (def is TableDef table)
-				return table.NativeStruct ? "IFlatBufferNativeVector<" + NativeName(table) + ">?" : null;
+				return table.PlainStruct ? "IFlatBufferPlainVector<" + PlainName(table) + ">?" : null;
 		}
 		return null;
 	}
 
-	string? NativeVectorElementType(TypeRef type)
+	string? PlainVectorElementType(TypeRef type)
 	{
 		if (type.ElementBase.IsScalar())
 			return type.ElementBase.ToCSharpKeyword();
@@ -153,14 +153,14 @@ public sealed partial class CodeEmitter
 		if (type.ElementBase == SchemaBaseType.Obj && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
 		{
 			if (def is TableDef table)
-				return table.NativeStruct ? NativeName(table) : null;
+				return table.PlainStruct ? PlainName(table) : null;
 			if (def is StructDef || def is EnumDef)
 				return type.ReferencedName;
 		}
 		return null;
 	}
 
-	void EmitNativeReadAssign(FieldDef field, string indent)
+	void EmitPlainReadAssign(FieldDef field, string indent)
 	{
 		string fieldName = ToPascalCase(field.Name);
 		string local = "__" + fieldName;
@@ -172,18 +172,18 @@ public sealed partial class CodeEmitter
 		if (field.Type.IsString)
 		{
 			if (field.CustomCollection)
-				EmitNativeStringCollectionReadAssign(fieldName, indent);
+				EmitPlainStringCollectionReadAssign(fieldName, indent);
 			else
 				_sb.Append(indent).Append("value.").Append(fieldName).Append(" = ").Append(fieldName).Append(".IsValid ? ").Append(fieldName).AppendLine(".AsBytes.ToArray() : null;");
 			return;
 		}
-		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct)
+		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.PlainStruct)
 		{
 			_sb.Append(indent).Append("var ").Append(local).Append(" = ").Append(fieldName).AppendLine(";");
 			_sb.Append(indent).Append("if (").Append(local).AppendLine(".IsValid)");
 			_sb.Append(indent).AppendLine("{");
 			_sb.Append(indent).Append("\tvar __item = value.").Append(fieldName).AppendLine(".GetValueOrDefault();");
-			_sb.Append(indent).Append("\t").Append(local).AppendLine(".ToNative(ref __item);");
+			_sb.Append(indent).Append("\t").Append(local).AppendLine(".ToPlain(ref __item);");
 			_sb.Append(indent).Append("\tvalue.").Append(fieldName).AppendLine(" = __item;");
 			_sb.Append(indent).AppendLine("}");
 			_sb.Append(indent).AppendLine("else");
@@ -193,10 +193,10 @@ public sealed partial class CodeEmitter
 			return;
 		}
 		if (field.Type.IsVector)
-			EmitNativeVectorReadAssign(field, indent);
+			EmitPlainVectorReadAssign(field, indent);
 	}
 
-	void EmitNativeStringCollectionReadAssign(string fieldName, string indent)
+	void EmitPlainStringCollectionReadAssign(string fieldName, string indent)
 	{
 		string target = "__" + fieldName + "Target";
 		string source = "__" + fieldName + "Source";
@@ -219,7 +219,7 @@ public sealed partial class CodeEmitter
 		_sb.Append(indent).AppendLine("}");
 	}
 
-	void EmitNativeVectorReadAssign(FieldDef field, string indent)
+	void EmitPlainVectorReadAssign(FieldDef field, string indent)
 	{
 		string fieldName = ToPascalCase(field.Name);
 		string local = "__" + fieldName;
@@ -256,7 +256,7 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).Append("\tvar ").Append(target).Append(" = value.").Append(fieldName).AppendLine(";");
 				_sb.Append(indent).Append("\tif (").Append(target).AppendLine(" == null)");
 				_sb.Append(indent).AppendLine("\t{");
-				_sb.Append(indent).Append("\t\t").Append(target).Append(" = FlatBufferNativeVectors.Create<IFlatBufferCollection<byte>>(").Append(local).AppendLine(".Length);");
+				_sb.Append(indent).Append("\t\t").Append(target).Append(" = FlatBufferPlainVectors.Create<IFlatBufferCollection<byte>>(").Append(local).AppendLine(".Length);");
 				_sb.Append(indent).Append("\t\tvalue.").Append(fieldName).Append(" = ").Append(target).AppendLine(";");
 				_sb.Append(indent).AppendLine("\t}");
 				_sb.Append(indent).Append("\t").Append(target).Append(".Resize(").Append(local).AppendLine(".Length);");
@@ -304,14 +304,14 @@ public sealed partial class CodeEmitter
 					_sb.Append(indent).Append("\tvalue.").Append(fieldName).AppendLine(" = __items;");
 				}
 			}
-			else if (elementDef is TableDef table && table.NativeStruct)
+			else if (elementDef is TableDef table && table.PlainStruct)
 			{
 				if (field.CustomCollection)
 				{
 					_sb.Append(indent).Append("\tvar ").Append(target).Append(" = value.").Append(fieldName).AppendLine(";");
 					_sb.Append(indent).Append("\tif (").Append(target).AppendLine(" == null)");
 					_sb.Append(indent).AppendLine("\t{");
-					_sb.Append(indent).Append("\t\t").Append(target).Append(" = FlatBufferNativeVectors.Create<").Append(NativeName(table)).Append(">(").Append(local).AppendLine(".Length);");
+					_sb.Append(indent).Append("\t\t").Append(target).Append(" = FlatBufferPlainVectors.Create<").Append(PlainName(table)).Append(">(").Append(local).AppendLine(".Length);");
 					_sb.Append(indent).Append("\t\tvalue.").Append(fieldName).Append(" = ").Append(target).AppendLine(";");
 					_sb.Append(indent).AppendLine("\t}");
 					_sb.Append(indent).Append("\t").Append(target).Append(".Resize(").Append(local).AppendLine(".Length);");
@@ -319,8 +319,8 @@ public sealed partial class CodeEmitter
 				}
 				else
 				{
-					_sb.Append(indent).Append("\tvar __items = new ").Append(NativeName(table)).Append('[').Append(local).AppendLine(".Length];");
-					_sb.Append(indent).Append("\tfor (int i = 0; i < __items.Length; i++) ").Append(local).AppendLine("[i].ToNative(ref __items[i]);");
+					_sb.Append(indent).Append("\tvar __items = new ").Append(PlainName(table)).Append('[').Append(local).AppendLine(".Length];");
+					_sb.Append(indent).Append("\tfor (int i = 0; i < __items.Length; i++) ").Append(local).AppendLine("[i].ToPlain(ref __items[i]);");
 					_sb.Append(indent).Append("\tvalue.").Append(fieldName).AppendLine(" = __items;");
 				}
 			}
@@ -335,17 +335,17 @@ public sealed partial class CodeEmitter
 		_sb.Append(indent).AppendLine("}");
 	}
 
-	void EmitNativeCreateLocals(TableDef table, string indent)
+	void EmitPlainCreateLocals(TableDef table, string indent)
 	{
 		foreach (var field in table.Fields)
 		{
-			if (field.Deprecated || NativeFieldType(field) == null)
+			if (field.Deprecated || PlainFieldType(field) == null)
 				continue;
-			EmitNativeCreateLocal(field, indent);
+			EmitPlainCreateLocal(field, indent);
 		}
 	}
 
-	void EmitNativeCreateLocal(FieldDef field, string indent)
+	void EmitPlainCreateLocal(FieldDef field, string indent)
 	{
 		string fieldName = ToPascalCase(field.Name);
 		string local = "__" + fieldName;
@@ -354,16 +354,16 @@ public sealed partial class CodeEmitter
 			_sb.Append(indent).Append("StringOffset ").Append(local).Append(" = value.").Append(fieldName).Append(" == null ? default : builder.CreateString(value.").Append(fieldName).Append(field.CustomCollection ? ".AsReadOnlySpan()" : "").AppendLine(");");
 			return;
 		}
-		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct)
+		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.PlainStruct)
 		{
-			_sb.Append(indent).Append("Offset<").Append(field.Type.ReferencedName).Append("> ").Append(local).Append(" = value.").Append(fieldName).Append(".HasValue ? ").Append(NativeName(table)).Append(".Serialize(ref builder, in value.").Append(fieldName).Append(".GetValueOrDefault()).AsOffset : default;").AppendLine();
+			_sb.Append(indent).Append("Offset<").Append(field.Type.ReferencedName).Append("Ref> ").Append(local).Append(" = value.").Append(fieldName).Append(".HasValue ? ").Append(PlainName(table)).Append(".Serialize(ref builder, in value.").Append(fieldName).Append(".GetValueOrDefault()).AsOffset : default;").AppendLine();
 			return;
 		}
 		if (field.Type.IsVector)
-			EmitNativeVectorCreateLocal(field, indent);
+			EmitPlainVectorCreateLocal(field, indent);
 	}
 
-	void EmitNativeVectorCreateLocal(FieldDef field, string indent)
+	void EmitPlainVectorCreateLocal(FieldDef field, string indent)
 	{
 		string fieldName = ToPascalCase(field.Name);
 		string local = "__" + fieldName;
@@ -391,7 +391,7 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).Append("VectorOffset ").Append(local).Append(" = ").Append(source).Append(" == null ? default : builder.CreateVector(").Append(source).Append(field.CustomCollection ? ".AsReadOnlySpan()" : "").AppendLine(");");
 				return;
 			}
-			if (elementDef is TableDef table && table.NativeStruct)
+			if (elementDef is TableDef table && table.PlainStruct)
 			{
 				_sb.Append(indent).Append("VectorOffset ").Append(local).AppendLine(" = default;");
 				_sb.Append(indent).Append("if (").Append(source).AppendLine(" != null)");
@@ -402,12 +402,12 @@ public sealed partial class CodeEmitter
 					_sb.Append(indent).AppendLine("\tfor (int i = 0; i < __offsets.Length; i++)");
 					_sb.Append(indent).AppendLine("\t{");
 					_sb.Append(indent).Append("\t\tvar __item = ").Append(source).AppendLine("[i];");
-					_sb.Append(indent).Append("\t\t__offsets[i] = ").Append(NativeName(table)).AppendLine(".Serialize(ref builder, in __item).BufferPos;");
+					_sb.Append(indent).Append("\t\t__offsets[i] = ").Append(PlainName(table)).AppendLine(".Serialize(ref builder, in __item).BufferPos;");
 					_sb.Append(indent).AppendLine("\t}");
 				}
 				else
 				{
-					_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = ").Append(NativeName(table)).Append(".Serialize(ref builder, in ").Append(source).AppendLine("[i]).BufferPos;");
+					_sb.Append(indent).Append("\tfor (int i = 0; i < __offsets.Length; i++) __offsets[i] = ").Append(PlainName(table)).Append(".Serialize(ref builder, in ").Append(source).AppendLine("[i]).BufferPos;");
 				}
 				_sb.Append(indent).Append("\t").Append(local).AppendLine(" = builder.CreateVectorOfOffsets(__offsets);");
 				_sb.Append(indent).AppendLine("}");
@@ -415,9 +415,9 @@ public sealed partial class CodeEmitter
 		}
 	}
 
-	string NativeCreateArgument(FieldDef field)
+	string PlainCreateArgument(FieldDef field)
 	{
-		if (field.Type.IsString || field.Type.IsVector || (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.NativeStruct))
+		if (field.Type.IsString || field.Type.IsVector || (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.PlainStruct))
 			return "__" + ToPascalCase(field.Name);
 		return "value." + ToPascalCase(field.Name);
 	}

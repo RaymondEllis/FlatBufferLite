@@ -6,7 +6,7 @@ public sealed partial class CodeEmitter
 {
 	void EmitReserveConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic static ").Append(t.Name).AppendLine(" Create(ref FlatBufferBuilder builder)");
+		_sb.Append("\tpublic static ").Append(t.Name).Append("Ref").AppendLine(" Create(ref FlatBufferBuilder builder)");
 		_sb.AppendLine("\t{");
 		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
 		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
@@ -17,7 +17,7 @@ public sealed partial class CodeEmitter
 			EmitFieldAssign(f, forced: true);
 		}
 		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
-		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
+		_sb.Append("\t\treturn new ").Append(t.Name).Append("Ref").AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}
 
@@ -108,7 +108,7 @@ public sealed partial class CodeEmitter
 
 	void EmitBuildConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic static ").Append(t.Name).Append(" Create(ref FlatBufferBuilder builder");
+		_sb.Append("\tpublic static ").Append(t.Name).Append("Ref").Append(" Create(ref FlatBufferBuilder builder");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
@@ -132,7 +132,7 @@ public sealed partial class CodeEmitter
 			EmitFieldAssign(f, forced: false);
 		}
 		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
-		_sb.Append("\t\treturn new ").Append(t.Name).AppendLine("(__buf, __pos);");
+		_sb.Append("\t\treturn new ").Append(t.Name).Append("Ref").AppendLine("(__buf, __pos);");
 		_sb.AppendLine("\t}");
 	}
 
@@ -147,7 +147,7 @@ public sealed partial class CodeEmitter
 		if (f.Type.IsObject && f.Type.ReferencedName != null && _schema.ByName.TryGetValue(f.Type.ReferencedName, out var def))
 		{
 			if (def is TableDef)
-				return "Offset<" + f.Type.ReferencedName + ">";
+				return "Offset<" + f.Type.ReferencedName + "Ref>";
 			if (def is StructDef)
 				return f.Type.ReferencedName;
 			if (def is EnumDef)

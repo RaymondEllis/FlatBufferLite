@@ -1,4 +1,4 @@
-using FlatBufferLite.NativeStructs;
+using FlatBufferLite.PlainStructs;
 using FlatBufferLite.Sample;
 using System.Runtime.CompilerServices;
 
@@ -166,9 +166,9 @@ public class ZeroAllocationTests
 	}
 
 	[Fact]
-	public void NativeStructSerialize_DoesNotAllocateScratchArrays()
+	public void PlainStructSerialize_DoesNotAllocateScratchArrays()
 	{
-		var source = new BagNative
+		var source = new Bag
 		{
 			Title = "bag"u8.ToArray(),
 			Scores = new[] { 1, 2, 3 },
@@ -176,7 +176,7 @@ public class ZeroAllocationTests
 			Qualities = new[] { Quality.Low, Quality.High },
 			Items = new[]
 			{
-				new ItemNative
+				new Item
 				{
 					Id = 7,
 					Name = "item"u8.ToArray(),
@@ -196,15 +196,15 @@ public class ZeroAllocationTests
 		Assert.Equal(0, after - before);
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
-		static void Warm(Span<byte> buf, in BagNative source) => Round(buf, in source);
+		static void Warm(Span<byte> buf, in Bag source) => Round(buf, in source);
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
-		static void Round(Span<byte> buf, in BagNative source)
+		static void Round(Span<byte> buf, in Bag source)
 		{
 			var b = new FlatBufferBuilder(buf);
-			BagNative.Serialize(ref b, in source);
+			Bag.Serialize(ref b, in source);
 			var span = b.Finish();
-			var read = Bag.GetRootAs(span);
+			var read = BagRef.GetRootAs(span);
 			_ = read.Scores.Length + read.Names.Length + read.Items.Length + read.Qualities.Length;
 		}
 	}
@@ -212,7 +212,7 @@ public class ZeroAllocationTests
 	[Fact]
 	public void GeneratedBuilder_DoesNotAllocate()
 	{
-		var buf = new byte[Player.GetMaxSize(nameByteCount: 5)];
+		var buf = new byte[PlayerRef.GetMaxSize(nameByteCount: 5)];
 		Warm(buf);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();
@@ -229,10 +229,10 @@ public class ZeroAllocationTests
 		{
 			var b = new FlatBufferBuilder(buf);
 			var name = b.CreateString("Alice"u8);
-			Player.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f });
+			PlayerRef.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, position: new Vec3 { X = 1.0f, Y = 2.0f, Z = 3.0f });
 
 			var span = b.Finish();
-			var read = Player.GetRootAs(span);
+			var read = PlayerRef.GetRootAs(span);
 			_ = read.Id + read.Hp;
 		}
 	}

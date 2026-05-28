@@ -1,15 +1,15 @@
-using FlatBufferLite.NativeStructs;
+using FlatBufferLite.PlainStructs;
 
 namespace FlatBufferLite.Tests;
 
-public class NativeStructTests
+public class PlainStructTests
 {
 	[Fact]
-	public void NativeStruct_RoundTripsScalarsStringsVectorsAndNestedTables()
+	public void PlainStruct_RoundTripsScalarsStringsVectorsAndNestedTables()
 	{
 		Span<byte> buffer = stackalloc byte[4096];
 		var builder = new FlatBufferBuilder(buffer);
-		var source = new BagNative
+		var source = new Bag
 		{
 			Title = "bag"u8.ToArray(),
 			Scores = new[] { 1, 2, 3 },
@@ -17,7 +17,7 @@ public class NativeStructTests
 			Qualities = new[] { Quality.Low, Quality.High },
 			Items = new[]
 			{
-				new ItemNative
+				new Item
 				{
 					Id = 7,
 					Name = "item"u8.ToArray(),
@@ -27,10 +27,10 @@ public class NativeStructTests
 			},
 		};
 
-		BagNative.Serialize(ref builder, in source);
+		Bag.Serialize(ref builder, in source);
 		var bytes = builder.Finish();
-		var read = new BagNative();
-		BagNative.Deserialize(bytes, ref read);
+		var read = new Bag();
+		Bag.Deserialize(bytes, ref read);
 
 		Assert.NotNull(read.Title);
 		Assert.Equal("bag"u8.ToArray(), read.Title);
@@ -50,58 +50,58 @@ public class NativeStructTests
 	}
 
 	[Fact]
-	public void NativeStruct_MixesWithRegularTables()
+	public void PlainStruct_MixesWithRegularTables()
 	{
 		Span<byte> buffer = stackalloc byte[4096];
 		var builder = new FlatBufferBuilder(buffer);
-		var source = new BagNative
+		var source = new Bag
 		{
 			Title = "mixed-bag"u8.ToArray(),
 			Items = new[]
 			{
-				new ItemNative
+				new Item
 				{
 					Id = 11,
-					Name = "native-item"u8.ToArray(),
+					Name = "plain-item"u8.ToArray(),
 					Quality = Quality.Low,
 				},
 			},
 		};
 
-		var bag = BagNative.Serialize(ref builder, in source);
+		var bag = Bag.Serialize(ref builder, in source);
 		var labelName = builder.CreateString("regular-label"u8);
-		var label = Label.Create(ref builder, name: labelName);
-		Shelf.Create(ref builder, bag: bag.AsOffset, label: label.AsOffset);
+		var label = LabelRef.Create(ref builder, name: labelName);
+		ShelfRef.Create(ref builder, bag: bag.AsOffset, label: label.AsOffset);
 
 		var bytes = builder.Finish();
-		var read = Shelf.GetRootAs(bytes);
-		var native = new BagNative();
-		read.Bag.ToNative(ref native);
+		var read = ShelfRef.GetRootAs(bytes);
+		var plain = new Bag();
+		read.Bag.ToPlain(ref plain);
 
-		Assert.NotNull(native.Title);
-		Assert.True(native.Title.AsSpan().SequenceEqual("mixed-bag"u8));
-		Assert.NotNull(native.Items);
-		Assert.True(native.Items[0].Name.AsSpan().SequenceEqual("native-item"u8));
+		Assert.NotNull(plain.Title);
+		Assert.True(plain.Title.AsSpan().SequenceEqual("mixed-bag"u8));
+		Assert.NotNull(plain.Items);
+		Assert.True(plain.Items[0].Name.AsSpan().SequenceEqual("plain-item"u8));
 		Assert.True(read.Label.Name.AsBytes.SequenceEqual("regular-label"u8));
 	}
 
 	[Fact]
-	public void NativeStruct_CollectionFieldsRoundTripWithProvidedLists()
+	public void PlainStruct_CollectionFieldsRoundTripWithProvidedLists()
 	{
 		SetCollectionCreates();
 		Span<byte> buffer = stackalloc byte[4096];
 		var builder = new FlatBufferBuilder(buffer);
-		var source = new CollectionBagNative
+		var source = new CollectionBag
 		{
 			Title = new TestFlatBufferCollection<byte> { (byte)'b', (byte)'a', (byte)'g' },
 			Scores = new TestFlatBufferCollection<int> { 1, 2, 3 },
-			Names = new TestFlatBufferNativeVector<IFlatBufferCollection<byte>>
+			Names = new TestFlatBufferPlainVector<IFlatBufferCollection<byte>>
 			{
 				new TestFlatBufferCollection<byte> { (byte)'o', (byte)'n', (byte)'e' },
 				new TestFlatBufferCollection<byte> { (byte)'t', (byte)'w', (byte)'o' },
 			},
 			Qualities = new TestFlatBufferCollection<Quality> { Quality.Low, Quality.High },
-			Items = new TestFlatBufferNativeVector<ItemNative>
+			Items = new TestFlatBufferPlainVector<Item>
 			{
 				new() {
 					Id = 7,
@@ -112,10 +112,10 @@ public class NativeStructTests
 			},
 		};
 
-		CollectionBagNative.Serialize(ref builder, in source);
+		CollectionBag.Serialize(ref builder, in source);
 		var bytes = builder.Finish();
-		var read = new CollectionBagNative();
-		CollectionBagNative.Deserialize(bytes, ref read);
+		var read = new CollectionBag();
+		CollectionBag.Deserialize(bytes, ref read);
 
 		Assert.NotNull(read.Title);
 		Assert.Equal("bag"u8.ToArray(), read.Title);
@@ -139,7 +139,7 @@ public class NativeStructTests
 		FlatBufferCollections<byte>.Create = items => new TestFlatBufferCollection<byte>(items);
 		FlatBufferCollections<int>.Create = items => new TestFlatBufferCollection<int>(items);
 		FlatBufferCollections<Quality>.Create = items => new TestFlatBufferCollection<Quality>(items);
-		FlatBufferNativeVectors<IFlatBufferCollection<byte>>.Create = items => new TestFlatBufferNativeVector<IFlatBufferCollection<byte>>(items);
-		FlatBufferNativeVectors<ItemNative>.Create = items => new TestFlatBufferNativeVector<ItemNative>(items);
+		FlatBufferPlainVectors<IFlatBufferCollection<byte>>.Create = items => new TestFlatBufferPlainVector<IFlatBufferCollection<byte>>(items);
+		FlatBufferPlainVectors<Item>.Create = items => new TestFlatBufferPlainVector<Item>(items);
 	}
 }
