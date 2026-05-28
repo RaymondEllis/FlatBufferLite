@@ -218,6 +218,7 @@ public sealed class Lexer
 
 public sealed class SchemaParser
 {
+	const int FlatBufferOffsetSize = 4;
 	readonly List<Token> _tokens;
 	int _pos;
 
@@ -833,7 +834,6 @@ public sealed class SchemaParser
 
 	static int GetTableFieldSortSize(FieldDef field, Schema schema)
 	{
-		const int FlatBufferOffsetSize = 4;
 		if (field.Type.IsUnion)
 			return FlatBufferOffsetSize;
 		if (field.Type.IsString || field.Type.IsVector)
@@ -843,6 +843,9 @@ public sealed class SchemaParser
 		{
 			if (def is EnumDef ed)
 				return ed.Underlying.InlineSize();
+			if (def is StructDef or TableDef or UnionDef)
+				// Match FlatBuffers sort-by-size buckets: SizeOf(BASE_TYPE_STRUCT/TABLE/UNION) == sizeof(Offset<void>) == 4.
+				return FlatBufferOffsetSize;
 			return FlatBufferOffsetSize;
 		}
 		return field.Type.Base.InlineSize();
