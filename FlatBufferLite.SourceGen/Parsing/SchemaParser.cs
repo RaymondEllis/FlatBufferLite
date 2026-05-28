@@ -843,9 +843,7 @@ public sealed class SchemaParser
 		{
 			if (def is EnumDef ed)
 				return ed.Underlying.InlineSize();
-			if (def is StructDef or TableDef or UnionDef)
-				// Match FlatBuffers sort-by-size buckets: SizeOf(BASE_TYPE_STRUCT/TABLE/UNION) == sizeof(Offset<void>) == 4.
-				return FlatBufferOffsetSize;
+			// Match FlatBuffers sort-by-size buckets: SizeOf(BASE_TYPE_STRUCT/TABLE/UNION) == sizeof(Offset<void>) == 4.
 			return FlatBufferOffsetSize;
 		}
 		return field.Type.Base.InlineSize();
