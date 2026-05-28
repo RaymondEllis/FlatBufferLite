@@ -1,5 +1,5 @@
-using FlatBufferLite.Sample;
 using FlatBufferLite.NativeStructs;
+using FlatBufferLite.Sample;
 using System.Runtime.CompilerServices;
 
 namespace FlatBufferLite.Tests;

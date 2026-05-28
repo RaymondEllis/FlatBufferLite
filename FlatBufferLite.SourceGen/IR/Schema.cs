@@ -27,6 +27,7 @@ public sealed class FieldDef
 	public string? HashAlgorithm;
 	public string? NestedFlatBufferType;
 	public bool IsFlexBuffer;
+	public bool CustomCollection;
 	public int ForceAlign;
 	public int Id = -1;
 	public int VTableOffset;

@@ -1,4 +1,5 @@
 attribute "native_struct";
+attribute "CustomCollection";
 
 namespace FlatBufferLite.NativeStructs;
 
@@ -25,6 +26,14 @@ table Bag (native_struct) {
 	names: [string];
 	items: [Item];
 	qualities: [Quality];
+}
+
+table CollectionBag (native_struct) {
+	title: string (CustomCollection);
+	scores: [int] (CustomCollection);
+	names: [string] (CustomCollection);
+	items: [Item] (CustomCollection);
+	qualities: [Quality] (CustomCollection);
 }
 
 table Label {

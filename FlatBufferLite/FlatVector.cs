@@ -55,11 +55,11 @@ public readonly ref struct FlatVector<T> where T : unmanaged
 
 public readonly ref struct FlatStringVector
 {
-	public readonly ReadOnlySpan<byte> Buffer;
+	public readonly Span<byte> Buffer;
 	public readonly int Position;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public FlatStringVector(ReadOnlySpan<byte> buffer, int position)
+	public FlatStringVector(Span<byte> buffer, int position)
 	{
 		Buffer = buffer;
 		Position = position;

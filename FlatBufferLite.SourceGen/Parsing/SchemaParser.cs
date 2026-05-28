@@ -601,6 +601,9 @@ public sealed class SchemaParser
 				case "flexbuffer":
 					field.IsFlexBuffer = true;
 					break;
+				case "CustomCollection":
+					field.CustomCollection = true;
+					break;
 				case "hash":
 					Expect(TokenKind.Colon);
 					field.HashAlgorithm = Expect(TokenKind.StringLit).Text;

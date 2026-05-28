@@ -23,6 +23,20 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("\t\t}");
 		_sb.AppendLine("\t}");
 
+		if (t.NativeStruct)
+		{
+			_sb.AppendLine();
+			_sb.Append("\tpublic void CopyTo(Span<").Append(NativeName(t)).AppendLine("> destination)");
+			_sb.AppendLine("\t{");
+			_sb.AppendLine("\t\tint length = Length;");
+			_sb.AppendLine("\t\tSystem.Diagnostics.Debug.Assert(destination.Length >= length);");
+			_sb.AppendLine("\t\tfor (int i = 0; i < length; i++)");
+			_sb.AppendLine("\t\t{");
+			_sb.AppendLine("\t\t\tthis[i].ToNative(ref destination[i]);");
+			_sb.AppendLine("\t\t}");
+			_sb.AppendLine("\t}");
+		}
+
 		FieldDef? keyField = null;
 		foreach (var f in t.Fields)
 		{

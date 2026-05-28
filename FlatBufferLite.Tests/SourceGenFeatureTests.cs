@@ -317,9 +317,55 @@ public class SourceGenFeatureTests
 
 		Assert.Contains("public byte[]? Name;", code);
 		Assert.Contains("public byte[][]? Names;", code);
-		Assert.Contains("Name.IsValid ? Name.AsBytes.ToArray() : null", code);
+		Assert.Contains("public static void Deserialize(Span<byte> buffer, ref NativeNative value)", code);
+		Assert.Contains("public void ToNative(ref NativeNative value)", code);
+		Assert.Contains("value.Name = Name.IsValid ? Name.AsBytes.ToArray() : null", code);
 		Assert.Contains("builder.CreateString(value.Name)", code);
 		Assert.DoesNotContain("Encoding.UTF8", code);
+	}
+
+	[Fact]
+	public void NativeStruct_CustomCollection_EmitsCustomCollectionFields()
+	{
+		var source = """
+			attribute "native_struct";
+			attribute "CustomCollection";
+			enum Quality : ubyte { Low = 0, High = 1 }
+			table Item (native_struct) { id: int; }
+			table Native (native_struct) {
+				name: string (CustomCollection);
+				scores: [int] (CustomCollection);
+				names: [string] (CustomCollection);
+				items: [Item] (CustomCollection);
+				qualities: [Quality] (CustomCollection);
+			}
+			root_type Native;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.True(schema.Tables[1].Fields[0].CustomCollection);
+		Assert.Contains("public IFlatBufferCollection<byte>? Name;", code);
+		Assert.Contains("public IFlatBufferCollection<int>? Scores;", code);
+		Assert.Contains("public IFlatBufferNativeVector<IFlatBufferCollection<byte>>? Names;", code);
+		Assert.Contains("public IFlatBufferNativeVector<ItemNative>? Items;", code);
+		Assert.Contains("public IFlatBufferCollection<Quality>? Qualities;", code);
+		Assert.Contains("builder.CreateString(value.Name.AsReadOnlySpan())", code);
+		Assert.Contains("builder.CreateVector(value.Scores.AsReadOnlySpan())", code);
+		Assert.Contains("builder.CreateString(value.Names[i].AsReadOnlySpan())", code);
+		Assert.Contains("FlatBufferCollections.Create<byte>", code);
+		Assert.Contains("FlatBufferCollections.Create<int>", code);
+		Assert.Contains("FlatBufferNativeVectors.Create<IFlatBufferCollection<byte>>", code);
+		Assert.Contains("FlatBufferNativeVectors.Create<ItemNative>", code);
+		Assert.Contains("FlatBufferCollections.EnsureCreate<Quality>();", code);
+		Assert.Contains("FlatBufferNativeVectors.EnsureCreate<ItemNative>();", code);
+		Assert.Contains("__NamesTarget.Resize(__Names.Length);", code);
+		Assert.Contains("var __NamesItems = __NamesTarget.AsSpan();", code);
+		Assert.Contains("var __NamesSource = __Names[i];", code);
+		Assert.Contains("FlatBufferCollections.Create<byte>(__NamesSource.Length)", code);
+		Assert.Contains("__NamesItem.ReplaceRange(ref __NamesVector);", code);
+		Assert.Contains("__ItemsTarget.Resize(__Items.Length);", code);
+		Assert.Contains("__Items.CopyTo(__ItemsTarget.AsSpan());", code);
 	}
 
 	[Fact]
@@ -461,21 +507,21 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-			Assert.DoesNotContain("shapeMaxSize", code);
-		}
+		Assert.DoesNotContain("shapeMaxSize", code);
+	}
 
-		[Fact]
-		public void VariableRefUnion_GetMaxSize_EmitsPayloadMaxSize()
-		{
-			var source = """
+	[Fact]
+	public void VariableRefUnion_GetMaxSize_EmitsPayloadMaxSize()
+	{
+		var source = """
 				table Circle { name: string; }
 				union Shape { Circle }
 				table WithShape { shape: Shape; }
 				root_type WithShape;
 				""";
-			var schema = new SchemaParser(source).Parse();
-			var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-			Assert.Contains("shapeMaxSize", code);
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+		Assert.Contains("shapeMaxSize", code);
 	}
 
 	[Fact]
