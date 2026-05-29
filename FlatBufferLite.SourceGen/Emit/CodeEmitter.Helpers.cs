@@ -1,4 +1,6 @@
 using FlatBufferLite.SourceGen.IR;
+using System;
+using System.Globalization;
 using System.Text;
 
 namespace FlatBufferLite.SourceGen.Emit;
@@ -62,23 +64,63 @@ public sealed partial class CodeEmitter
 		return "object";
 	}
 
+	string SchemaComment(string kind, string sourceName, string generatedName, SchemaLocation location)
+	{
+		string origin = FormatLocation(location);
+		string text = origin.Length > 0 ? origin + " " : "";
+		text += kind + " " + sourceName;
+		if (generatedName.Length > 0 && generatedName != sourceName)
+			text += " -> " + generatedName;
+		return text;
+	}
+
+	string FormatLocation(SchemaLocation location)
+	{
+		if (location.File is { Length: > 0 } file)
+		{
+			string display = _basePath is { Length: > 0 } bp && file.StartsWith(bp, StringComparison.OrdinalIgnoreCase)
+				? file.Substring(bp.Length)
+				: file;
+			if (location.Line > 0)
+				return display + ":" + location.Line.ToString(CultureInfo.InvariantCulture);
+			return display;
+		}
+		if (location.Line > 0)
+			return "line " + location.Line.ToString(CultureInfo.InvariantCulture);
+		return "";
+	}
+
+	void EmitCodeComment(string? comment)
+	{
+		if (comment is { Length: > 0 })
+			_w.Append("// ").AppendLine(comment);
+	}
+
+	void EmitSchemaComment(string kind, string sourceName, string generatedName, SchemaLocation location)
+	{
+		EmitCodeComment(SchemaComment(kind, sourceName, generatedName, location));
+	}
+
 	void EmitStructLayoutExplicit(int size)
 	{
 		_w.Append("[StructLayout(LayoutKind.Explicit, Size = ").Append(size).AppendLine(")]");
 	}
 
-	void EmitPublicField(string typeName, string fieldName)
+	void EmitPublicField(string typeName, string fieldName, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("public ").Append(typeName).Append(' ').Append(fieldName).EndStatement();
 	}
 
-	void EmitPublicReadonlyField(string typeName, string fieldName)
+	void EmitPublicReadonlyField(string typeName, string fieldName, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("public readonly ").Append(typeName).Append(' ').Append(fieldName).EndStatement();
 	}
 
-	void EmitReadonlyField(string typeName, string fieldName)
+	void EmitReadonlyField(string typeName, string fieldName, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("readonly ").Append(typeName).Append(' ').Append(fieldName).EndStatement();
 	}
 
@@ -87,8 +129,9 @@ public sealed partial class CodeEmitter
 		EmitFieldOffsetField(offset, "public", typeName, fieldName);
 	}
 
-	void EmitFieldOffsetField(int offset, string modifiers, string typeName, string fieldName)
+	void EmitFieldOffsetField(int offset, string modifiers, string typeName, string fieldName, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("[FieldOffset(").Append(offset).Append(")] ").Append(modifiers).Append(' ').Append(typeName).Append(' ').Append(fieldName).EndStatement();
 	}
 
@@ -119,18 +162,20 @@ public sealed partial class CodeEmitter
 		_w.OpenBlock();
 	}
 
-	void EmitIndirectNewProperty(string typeName, string propertyName, int vto)
+	void EmitIndirectNewProperty(string typeName, string propertyName, int vto, string? comment = null)
 	{
-		EmitIndirectNewProperty(typeName, propertyName, typeName, vto);
+		EmitIndirectNewProperty(typeName, propertyName, typeName, vto, comment);
 	}
 
-	void EmitIndirectNewProperty(string typeName, string propertyName, string newTypeName, int vto)
+	void EmitIndirectNewProperty(string typeName, string propertyName, string newTypeName, int vto, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("public ").Append(typeName).Append(' ').Append(propertyName).Append(" => new ").Append(newTypeName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 	}
 
-	void EmitIndirectNewPropertyGeneric(string typeName, string typeArg, string propertyName, int vto)
+	void EmitIndirectNewPropertyGeneric(string typeName, string typeArg, string propertyName, int vto, string? comment = null)
 	{
+		EmitCodeComment(comment);
 		_w.Append("public ").Append(typeName).Append('<').Append(typeArg).Append("> ").Append(propertyName)
 		.Append(" => new ").Append(typeName).Append('<').Append(typeArg).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
 	}

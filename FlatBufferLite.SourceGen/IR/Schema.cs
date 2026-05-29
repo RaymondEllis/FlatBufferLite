@@ -2,6 +2,13 @@ using System.Collections.Generic;
 
 namespace FlatBufferLite.SourceGen.IR;
 
+public struct SchemaLocation
+{
+	public string? File;
+	public int Line;
+	public int Column;
+}
+
 public struct TypeRef
 {
 	public SchemaBaseType Base;
@@ -19,6 +26,7 @@ public interface ISchemaDef { }
 public sealed class FieldDef
 {
 	public string Name = "";
+	public SchemaLocation Location;
 	public TypeRef Type;
 	public string? DefaultValue;
 	public bool Deprecated;
@@ -39,6 +47,7 @@ public sealed class TableDef : ISchemaDef
 {
 	public string? Namespace;
 	public string Name = "";
+	public SchemaLocation Location;
 	public List<FieldDef> Fields = new();
 	public bool OriginalOrder;
 	public bool PlainStruct;
@@ -50,6 +59,7 @@ public sealed class TableDef : ISchemaDef
 public sealed class StructFieldDef
 {
 	public string Name = "";
+	public SchemaLocation Location;
 	public TypeRef Type;
 	public int ForceAlign;
 	public int Offset;
@@ -60,6 +70,7 @@ public sealed class StructDef : ISchemaDef
 {
 	public string? Namespace;
 	public string Name = "";
+	public SchemaLocation Location;
 	public List<StructFieldDef> Fields = new();
 	public int ForceAlign;
 	public int Size;
@@ -77,6 +88,7 @@ public sealed class EnumDef : ISchemaDef
 {
 	public string? Namespace;
 	public string Name = "";
+	public SchemaLocation Location;
 	public SchemaBaseType Underlying = SchemaBaseType.Int;
 	public List<EnumValueDef> Values = new();
 	public bool IsBitFlags;
@@ -93,6 +105,7 @@ public sealed class UnionDef : ISchemaDef
 {
 	public string? Namespace;
 	public string Name = "";
+	public SchemaLocation Location;
 	public List<UnionMember> Members = new();
 }
 

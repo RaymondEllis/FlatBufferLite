@@ -33,6 +33,35 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 					fileContents[f.Path] = f.Content;
 			}
 
+			string? commonBase = null;
+			foreach (var f in files)
+			{
+				if (f.Content.Length == 0)
+					continue;
+				var normalized = SchemaPath.Normalize(f.Path);
+				var lastSlash = normalized.LastIndexOf('/');
+				var dir = lastSlash >= 0 ? normalized.Substring(0, lastSlash + 1) : "";
+				if (dir.Length == 0)
+					continue;
+				if (commonBase == null)
+				{
+					commonBase = dir;
+					continue;
+				}
+				int i = 0;
+				while (i < commonBase.Length && i < dir.Length && char.ToLowerInvariant(commonBase[i]) == char.ToLowerInvariant(dir[i]))
+					i++;
+				if (i == 0)
+				{
+					commonBase = "";
+					break;
+				}
+				var lastCommonSlash = commonBase.LastIndexOf('/', i - 1);
+				commonBase = lastCommonSlash >= 0 ? commonBase.Substring(0, lastCommonSlash + 1) : "";
+				if (commonBase.Length == 0)
+					break;
+			}
+
 			foreach (var f in files)
 			{
 				spc.CancellationToken.ThrowIfCancellationRequested();
@@ -46,7 +75,7 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 						spc.ReportDiagnostic(Diagnostic.Create(DiagMissingInclude, Location.None, missing, f.Path));
 					foreach (var w in schema.Warnings)
 						spc.ReportDiagnostic(Diagnostic.Create(DiagWarning, Location.None, w));
-					var code = new CodeEmitter(schema, spc.CancellationToken).Emit();
+					var code = new CodeEmitter(schema, spc.CancellationToken, commonBase).Emit();
 					var hint = $"{BuildHintName(f.Path)}.g.cs";
 					spc.AddSource(hint, SourceText.From(code, Encoding.UTF8));
 				}

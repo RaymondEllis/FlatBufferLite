@@ -9,6 +9,7 @@ public sealed partial class CodeEmitter
 	void EmitPlainStruct(TableDef table)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("table", table.Name, PlainName(table) + " plain struct", table.Location);
 		_w.AppendLine("public partial struct " + PlainName(table));
 		_w.OpenBlock();
 		foreach (var field in table.Fields)
@@ -18,7 +19,8 @@ public sealed partial class CodeEmitter
 			var typeName = PlainFieldType(field);
 			if (typeName == null)
 				continue;
-			EmitPublicField(typeName, ToPascalCase(field.Name));
+			string fieldName = ToPascalCase(field.Name);
+			EmitPublicField(typeName, fieldName, SchemaComment("field", field.Name, fieldName, field.Location));
 		}
 		EmitPlainCollectionStaticConstructor(table);
 

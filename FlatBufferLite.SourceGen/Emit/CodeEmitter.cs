@@ -12,11 +12,14 @@ public sealed partial class CodeEmitter
 	readonly IndentedWriter _w = new();
 	readonly HashSet<string> _refUnions = new();
 	readonly HashSet<string> _autoPlainStructs = new();
+	readonly string? _basePath;
 
-	public CodeEmitter(Schema schema, CancellationToken cancellationToken = default)
+	public CodeEmitter(Schema schema, CancellationToken cancellationToken = default, string? basePath = null)
 	{
 		_schema = schema;
 		_cancellationToken = cancellationToken;
+		if (basePath is { Length: > 0 } bp)
+			_basePath = bp.EndsWith("/") ? bp : bp + "/";
 	}
 
 	public string Emit()
@@ -108,6 +111,7 @@ public sealed partial class CodeEmitter
 	void EmitEnum(EnumDef e)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("enum", e.Name, e.Name, e.Location);
 		if (e.IsBitFlags)
 			_w.AppendLine("[System.Flags]");
 		_w.OpenBlock("public enum " + e.Name + " : " + e.Underlying.ToCSharpKeyword());
@@ -124,13 +128,15 @@ public sealed partial class CodeEmitter
 	void EmitStruct(StructDef s)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("struct", s.Name, s.Name, s.Location);
 		EmitStructLayoutExplicit(s.Size);
 		_w.AppendLine("public partial struct " + s.Name);
 		_w.OpenBlock();
 		foreach (var f in s.Fields)
 		{
 			string cs = ResolveTypeName(f.Type);
-			EmitFieldOffsetField(f.Offset, cs, ToPascalCase(f.Name));
+			string fieldName = ToPascalCase(f.Name);
+			EmitFieldOffsetField(f.Offset, "public", cs, fieldName, SchemaComment("field", f.Name, fieldName, f.Location));
 		}
 		_w.CloseBlock();
 	}
@@ -138,6 +144,7 @@ public sealed partial class CodeEmitter
 	void EmitTable(TableDef t)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("table", t.Name, t.Name + "Ref", t.Location);
 		_w.AppendLine("public readonly ref partial struct " + t.Name + "Ref");
 		_w.OpenBlock();
 		EmitReadonlyField("Span<byte>", "_buf");

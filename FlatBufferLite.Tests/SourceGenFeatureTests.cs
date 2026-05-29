@@ -51,6 +51,24 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void GeneratedComments_ShowSchemaSourceLocations()
+	{
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			["test/main.fbs"] = "enum Color : byte { Red }\nstruct Vec2 { x: float; y: float; }\ntable Sprite { id: int; }\nunion Node { Sprite }\ntable Holder { node: Node; color: Color; pos: Vec2; }\nroot_type Holder;",
+		};
+
+		var schema = SchemaParser.ParseWithIncludes("test/main.fbs", files);
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("// test/main.fbs:1 enum Color", code);
+		Assert.Contains("// test/main.fbs:2 struct Vec2", code);
+		Assert.Contains("// test/main.fbs:3 table Sprite -> SpriteRef", code);
+		Assert.Contains("// test/main.fbs:4 union Node -> NodeKind", code);
+		Assert.Contains("// test/main.fbs:3 field id -> Id", code);
+	}
+
+	[Fact]
 	public void IncludeDirective_TransitiveIncludes()
 	{
 		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

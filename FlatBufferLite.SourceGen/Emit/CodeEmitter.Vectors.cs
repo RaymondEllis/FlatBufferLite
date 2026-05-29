@@ -7,6 +7,7 @@ public sealed partial class CodeEmitter
 	void EmitTableVector(TableDef t)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("table", t.Name, t.Name + "RefVector", t.Location);
 		_w.AppendLine("public readonly ref struct " + t.Name + "RefVector");
 		_w.OpenBlock();
 		EmitReadonlyField("Span<byte>", "_buf");

@@ -31,6 +31,7 @@ public sealed partial class CodeEmitter
 	void EmitUnion(UnionDef u)
 	{
 		_w.AppendLine();
+		EmitSchemaComment("union", u.Name, u.Name + "Kind", u.Location);
 		_w.OpenBlock("public enum " + u.Name + "Kind : byte");
 		_w.AppendLine("NONE = 0,");
 		foreach (var m in u.Members)
@@ -93,6 +94,7 @@ public sealed partial class CodeEmitter
 		int totalSize = AlignUp(tagOffset + 1, maxAlign > 0 ? maxAlign : 1);
 
 		_w.AppendLine();
+		EmitSchemaComment("union", u.Name, u.Name, u.Location);
 		_w.AppendLine("[Union]");
 		EmitStructLayoutExplicit(totalSize);
 		_w.AppendLine("public struct " + u.Name + " : IUnion");
@@ -134,6 +136,7 @@ public sealed partial class CodeEmitter
 	{
 		string refUnionName = RefUnionName(u);
 		_w.AppendLine();
+		EmitSchemaComment("union", u.Name, refUnionName, u.Location);
 		_w.AppendLine("[Union]");
 		_w.AppendLine("public readonly ref struct " + refUnionName + " : IUnion");
 		_w.OpenBlock();
@@ -215,6 +218,7 @@ public sealed partial class CodeEmitter
 		}
 
 		_w.AppendLine();
+		EmitSchemaComment("union", u.Name, u.Name + " plain struct", u.Location);
 		_w.AppendLine("[Union]");
 
 		if (allBlittable)

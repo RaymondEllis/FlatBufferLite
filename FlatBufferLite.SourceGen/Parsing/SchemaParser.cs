@@ -221,11 +221,13 @@ public sealed class SchemaParser
 {
 	const int FlatBufferOffsetSize = 4;
 	readonly List<Token> _tokens;
+	readonly string? _sourcePath;
 	int _pos;
 
-	public SchemaParser(string source)
+	public SchemaParser(string source, string? sourcePath = null)
 	{
 		_tokens = new Lexer(source).Tokenize();
+		_sourcePath = sourcePath is { Length: > 0 } ? SchemaPath.Normalize(sourcePath) : null;
 	}
 
 	Token Peek(int n = 0)
@@ -272,6 +274,8 @@ public sealed class SchemaParser
 		_pos++;
 		return t;
 	}
+
+	SchemaLocation GetLocation(Token token) => new() { File = _sourcePath, Line = token.Line, Column = token.Column };
 
 	public Schema Parse()
 	{
@@ -363,7 +367,7 @@ public sealed class SchemaParser
 		// dir is the forward-slash directory portion of filePath (trailing slash included).
 		var lastSlash = filePath.LastIndexOf('/');
 		var dir = lastSlash >= 0 ? filePath.Substring(0, lastSlash + 1) : "";
-		var parser = new SchemaParser(source);
+		var parser = new SchemaParser(source, filePath);
 		var schema = parser.ParseRaw();
 
 		foreach (var include in schema.Includes)
@@ -404,9 +408,9 @@ public sealed class SchemaParser
 
 	void ParseTable(Schema schema, string? ns)
 	{
-		_pos++;
+		var keyword = ExpectIdent();
 		var name = ExpectIdent().Text;
-		var table = new TableDef { Name = name, Namespace = ns };
+		var table = new TableDef { Name = name, Namespace = ns, Location = GetLocation(keyword) };
 		ParseTableMetadata(table);
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
@@ -417,15 +421,15 @@ public sealed class SchemaParser
 
 	void ParseStruct(Schema schema, string? ns)
 	{
-		_pos++;
+		var keyword = ExpectIdent();
 		var name = ExpectIdent().Text;
-		var s = new StructDef { Name = name, Namespace = ns };
+		var s = new StructDef { Name = name, Namespace = ns, Location = GetLocation(keyword) };
 		ParseStructMetadata(s);
 		Expect(TokenKind.LBrace);
 		while (Peek().Kind != TokenKind.RBrace)
 		{
 			var f = ParseFieldDef();
-			s.Fields.Add(new StructFieldDef { Name = f.Name, Type = f.Type, ForceAlign = f.ForceAlign });
+			s.Fields.Add(new StructFieldDef { Name = f.Name, Location = f.Location, Type = f.Type, ForceAlign = f.ForceAlign });
 		}
 		Expect(TokenKind.RBrace);
 		schema.Structs.Add(s);
@@ -433,7 +437,7 @@ public sealed class SchemaParser
 
 	void ParseEnum(Schema schema, string? ns)
 	{
-		_pos++;
+		var keyword = ExpectIdent();
 		var name = ExpectIdent().Text;
 		var underlying = SchemaBaseType.Int;
 		bool isBitFlags = false;
@@ -457,7 +461,7 @@ public sealed class SchemaParser
 			Expect(TokenKind.RParen);
 		}
 		Expect(TokenKind.LBrace);
-		var e = new EnumDef { Name = name, Underlying = underlying, IsBitFlags = isBitFlags, Namespace = ns };
+		var e = new EnumDef { Name = name, Underlying = underlying, IsBitFlags = isBitFlags, Namespace = ns, Location = GetLocation(keyword) };
 		long autoVal = 0;
 		while (Peek().Kind != TokenKind.RBrace)
 		{
@@ -480,11 +484,11 @@ public sealed class SchemaParser
 
 	void ParseUnion(Schema schema, string? ns)
 	{
-		_pos++;
+		var keyword = ExpectIdent();
 		var name = ExpectIdent().Text;
 		SkipMetadata();
 		Expect(TokenKind.LBrace);
-		var u = new UnionDef { Name = name, Namespace = ns };
+		var u = new UnionDef { Name = name, Namespace = ns, Location = GetLocation(keyword) };
 		while (Peek().Kind != TokenKind.RBrace)
 		{
 			var t = ExpectIdent();
@@ -530,10 +534,10 @@ public sealed class SchemaParser
 
 	FieldDef ParseFieldDef()
 	{
-		var name = ExpectIdent().Text;
+		var name = ExpectIdent();
 		Expect(TokenKind.Colon);
 		var type = ParseType();
-		var field = new FieldDef { Name = name, Type = type };
+		var field = new FieldDef { Name = name.Text, Location = GetLocation(name), Type = type };
 		if (Match(TokenKind.Assign))
 		{
 			var t = Next();
