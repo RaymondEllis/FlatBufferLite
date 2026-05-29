@@ -218,6 +218,7 @@ public sealed class Lexer
 
 public sealed class SchemaParser
 {
+	const int FlatBufferOffsetSize = 4;
 	readonly List<Token> _tokens;
 	int _pos;
 
@@ -760,7 +761,7 @@ public sealed class SchemaParser
 		{
 			int off = 0;
 			int maxAlign = 4; // soffset is 4-byte
-			foreach (var f in t.Fields)
+			foreach (var f in GetTableLayoutFields(t, schema))
 			{
 				if (f.Deprecated)
 				{
@@ -804,6 +805,48 @@ public sealed class SchemaParser
 			t.InlineSize = AlignUp(off, maxAlign);
 			t.InlineAlign = maxAlign;
 		}
+	}
+
+	static List<FieldDef> GetTableLayoutFields(TableDef table, Schema schema)
+	{
+		var fields = new List<FieldDef>(table.Fields);
+		if (table.OriginalOrder)
+			return fields;
+
+		var order = new Dictionary<FieldDef, (int SortSize, int DeclarationIndex)>(fields.Count);
+		for (int i = 0; i < fields.Count; i++)
+		{
+			var field = fields[i];
+			order[field] = (GetTableFieldSortSize(field, schema), i);
+		}
+
+		fields.Sort((a, b) =>
+		{
+			var x = order[a];
+			var y = order[b];
+			int sizeCmp = y.SortSize.CompareTo(x.SortSize);
+			if (sizeCmp != 0)
+				return sizeCmp;
+			return x.DeclarationIndex.CompareTo(y.DeclarationIndex);
+		});
+		return fields;
+	}
+
+	static int GetTableFieldSortSize(FieldDef field, Schema schema)
+	{
+		if (field.Type.IsUnion)
+			return FlatBufferOffsetSize;
+		if (field.Type.IsString || field.Type.IsVector)
+			return FlatBufferOffsetSize;
+		if (field.Type.IsObject && field.Type.ReferencedName != null &&
+			schema.ByName.TryGetValue(field.Type.ReferencedName, out var def))
+		{
+			if (def is EnumDef ed)
+				return ed.Underlying.InlineSize();
+			// Match FlatBuffers sort-by-size buckets: SizeOf(BASE_TYPE_STRUCT/TABLE/UNION) == sizeof(Offset<void>) == 4.
+			return FlatBufferOffsetSize;
+		}
+		return field.Type.Base.InlineSize();
 	}
 
 	static void AssignStructLayout(Schema schema)

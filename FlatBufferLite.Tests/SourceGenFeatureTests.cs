@@ -754,6 +754,81 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void TableLayout_DefaultOrdering_PacksByAlignmentAndSize()
+	{
+		var source = """
+			table Packed {
+				a: short;
+				b: int;
+				c: ubyte;
+			}
+			root_type Packed;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var table = schema.Tables[0];
+		var a = table.Fields.Single(f => f.Name == "a");
+		var b = table.Fields.Single(f => f.Name == "b");
+		var c = table.Fields.Single(f => f.Name == "c");
+
+		Assert.Equal(4 + 0 * 2, a.VTableOffset);
+		Assert.Equal(4 + 1 * 2, b.VTableOffset);
+		Assert.Equal(4 + 2 * 2, c.VTableOffset);
+
+		Assert.Equal(4, a.InlineOffset);
+		Assert.Equal(0, b.InlineOffset);
+		Assert.Equal(6, c.InlineOffset);
+		Assert.Equal(8, table.InlineSize);
+	}
+
+	[Fact]
+	public void TableLayout_OriginalOrder_KeepsDeclarationLayout()
+	{
+		var source = """
+			table Ordered (original_order) {
+				a: short;
+				b: int;
+				c: ubyte;
+			}
+			root_type Ordered;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var table = schema.Tables[0];
+		var a = table.Fields.Single(f => f.Name == "a");
+		var b = table.Fields.Single(f => f.Name == "b");
+		var c = table.Fields.Single(f => f.Name == "c");
+
+		Assert.Equal(0, a.InlineOffset);
+		Assert.Equal(4, b.InlineOffset);
+		Assert.Equal(8, c.InlineOffset);
+		Assert.Equal(12, table.InlineSize);
+	}
+
+	[Fact]
+	public void TableLayout_DefaultOrdering_MatchesFlatBuffersSizeBuckets_ForStructFields()
+	{
+		var source = """
+			struct Vec3 {
+				x: float;
+				y: float;
+				z: float;
+			}
+			table Mixed {
+				i: int;
+				s: Vec3;
+			}
+			root_type Mixed;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var table = schema.Tables[0];
+		var i = table.Fields.Single(f => f.Name == "i");
+		var s = table.Fields.Single(f => f.Name == "s");
+
+		Assert.Equal(0, i.InlineOffset);
+		Assert.Equal(4, s.InlineOffset);
+		Assert.Equal(16, table.InlineSize);
+	}
+
+	[Fact]
 	public void TypeAttribute_ForceAlign_ChangesStructAlignment()
 	{
 		var source = """
