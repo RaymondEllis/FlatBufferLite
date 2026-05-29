@@ -53,7 +53,7 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
 | Type attribute: `plain_struct` (tables) → plain C# struct DTO | ✅ |
-| Type attribute: `original_order` (tables) | ❌ (parsed only; table fields are always in declaration order) |
+| Type attribute: `original_order` (tables) | ✅ (preserves declaration order; default table layout packs by alignment/size) |
 | Enum attribute: `bit_flags` | ✅ |
 | Scalar types: all (`bool`, `byte`/`int8`, `ubyte`/`uint8`, `short`/`int16`, `ushort`/`uint16`, `int`/`int32`, `uint`/`uint32`, `long`/`int64`, `ulong`/`uint64`, `float`/`float32`, `double`/`float64`) | ✅ |
 | Vector types | ✅ |
