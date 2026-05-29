@@ -20,7 +20,8 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
 		var fbsFiles = context.AdditionalTextsProvider
-			.Where(at => at.Path.EndsWith(".fbs", StringComparison.OrdinalIgnoreCase))
+			.Where(static at => at.Path.EndsWith(".fbs", StringComparison.OrdinalIgnoreCase))
+			.Select(static (at, ct) => (Path: at.Path, Content: at.GetText(ct)?.ToString() ?? ""))
 			.Collect();
 
 		context.RegisterSourceOutput(fbsFiles, (spc, files) =>
@@ -28,32 +29,34 @@ public sealed class FlatBufferIncrementalGenerator : IIncrementalGenerator
 			var fileContents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (var f in files)
 			{
-				var text = f.GetText()?.ToString();
-				if (text != null)
-					fileContents[f.Path] = text;
+				if (f.Content.Length > 0)
+					fileContents[f.Path] = f.Content;
 			}
 
-			foreach (var at in files)
+			foreach (var f in files)
 			{
+				spc.CancellationToken.ThrowIfCancellationRequested();
+				if (f.Content.Length == 0)
+					continue;
 				try
 				{
 					var missingIncludes = new List<string>();
-					var schema = SchemaParser.ParseWithIncludes(at.Path, fileContents, missingIncludes);
+					var schema = SchemaParser.ParseWithIncludes(f.Path, fileContents, missingIncludes, spc.CancellationToken);
 					foreach (var missing in missingIncludes)
-						spc.ReportDiagnostic(Diagnostic.Create(DiagMissingInclude, Location.None, missing, at.Path));
+						spc.ReportDiagnostic(Diagnostic.Create(DiagMissingInclude, Location.None, missing, f.Path));
 					foreach (var w in schema.Warnings)
 						spc.ReportDiagnostic(Diagnostic.Create(DiagWarning, Location.None, w));
-					var code = new CodeEmitter(schema).Emit();
-					var hint = $"{BuildHintName(at.Path)}.g.cs";
+					var code = new CodeEmitter(schema, spc.CancellationToken).Emit();
+					var hint = $"{BuildHintName(f.Path)}.g.cs";
 					spc.AddSource(hint, SourceText.From(code, Encoding.UTF8));
 				}
 				catch (SchemaParseException ex)
 				{
-					spc.ReportDiagnostic(Diagnostic.Create(DiagParseError, Location.None, at.Path, ex.Message));
+					spc.ReportDiagnostic(Diagnostic.Create(DiagParseError, Location.None, f.Path, ex.Message));
 				}
 				catch (Exception ex)
 				{
-					spc.ReportDiagnostic(Diagnostic.Create(DiagCodeGenError, Location.None, at.Path, ex.Message));
+					spc.ReportDiagnostic(Diagnostic.Create(DiagCodeGenError, Location.None, f.Path, ex.Message));
 				}
 			}
 		});

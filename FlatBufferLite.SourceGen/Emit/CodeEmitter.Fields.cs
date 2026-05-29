@@ -13,23 +13,25 @@ public sealed partial class CodeEmitter
 		if (f.Type.Base.IsScalar())
 		{
 			string cs = ScalarCSharpType(f.Type, out string defaultLiteral);
-			string def = !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defaultLiteral;
+			string def = f.DefaultValue is { Length: > 0 } defaultValue ? FormatDefault(f.Type, defaultValue) : defaultLiteral;
 			EmitScalarProperty(cs, cs, propName, vto, absInline, def, castUnderlying: null);
 			return;
 		}
 		if (f.Type.IsString)
 		{
-			_sb.Append("\tpublic FlatString ").Append(propName).Append(" => new FlatString(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			EmitIndirectNewProperty("FlatString", propName, vto);
 			return;
 		}
 		if (f.Type.IsObject)
 		{
-			var name = f.Type.ReferencedName!;
+			if (f.Type.ReferencedName == null)
+				return;
+			var name = f.Type.ReferencedName;
 			if (_schema.ByName.TryGetValue(name, out var def))
 			{
 				if (def is TableDef)
 				{
-					_sb.Append("\tpublic ").Append(name).Append("Ref").Append(' ').Append(propName).Append(" => new ").Append(name).Append("Ref").Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					EmitIndirectNewProperty(name + "Ref", propName, vto);
 					return;
 				}
 				if (def is StructDef)
@@ -40,9 +42,9 @@ public sealed partial class CodeEmitter
 				if (def is EnumDef ed)
 				{
 					string underlying = ed.Underlying.ToCSharpKeyword();
-					string defLit = !string.IsNullOrEmpty(f.DefaultValue)
-						? FormatEnumDefault(ed, f.DefaultValue!)
-						: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
+					string defLit = f.DefaultValue is { Length: > 0 } defaultValue
+					? FormatEnumDefault(ed, defaultValue)
+					: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
 					EmitScalarProperty(name, underlying, propName, vto, absInline, defLit, castUnderlying: underlying);
 					return;
 				}
@@ -60,7 +62,9 @@ public sealed partial class CodeEmitter
 		}
 		if (f.Type.IsUnion)
 		{
-			var unionName = f.Type.ReferencedName!;
+			if (f.Type.ReferencedName == null)
+				return;
+			var unionName = f.Type.ReferencedName;
 			var unionTypeName = _refUnions.Contains(unionName) ? RefUnionName(unionName) : unionName;
 			int typeVto = vto;
 			int dataVto = vto + 2;
@@ -68,9 +72,9 @@ public sealed partial class CodeEmitter
 			EmitScalarProperty(unionName + "Kind", "byte", propName + "Type", typeVto, typeAbsInline, "0", castUnderlying: "byte");
 			if (_refUnions.Contains(unionName))
 			{
-				_sb.Append("\tpublic ").Append(unionTypeName).Append(' ').Append(propName)
-					.Append(" => new ").Append(unionTypeName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(dataVto)
-					.Append("), Vtable.Read<byte>(_buf, _pos, ").Append(typeVto).AppendLine(", 0));");
+				_w.Append("public ").Append(unionTypeName).Append(' ').Append(propName)
+				.Append(" => new ").Append(unionTypeName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(dataVto)
+				.Append("), Vtable.Read<byte>(_buf, _pos, ").Append(typeVto).AppendLine(", 0));");
 			}
 			else
 			{
@@ -82,23 +86,23 @@ public sealed partial class CodeEmitter
 
 	void EmitStructRefProperty(string typeName, string propName, int vto, int absInline)
 	{
-		_sb.Append("\tpublic ").Append(typeName).Append(' ').Append(propName)
-			.Append(" { get => Vtable.StructOffset(_buf, _pos, ").Append(vto).Append(") is var o && o == 0 ? default : FlatBufferReader.ReadUnaligned<").Append(typeName).Append(">(_buf, o);")
-			.Append(" set => Vtable.WriteForced<").Append(typeName).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in value); }");
+		_w.Append("public ").Append(typeName).Append(' ').Append(propName)
+		.Append(" { get => Vtable.StructOffset(_buf, _pos, ").Append(vto).Append(") is var o && o == 0 ? default : FlatBufferReader.ReadUnaligned<").Append(typeName).Append(">(_buf, o);")
+		.Append(" set => Vtable.WriteForced<").Append(typeName).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in value); }");
 	}
 
 	void EmitScalarProperty(string publicType, string underlying, string propName, int vto, int absInline, string def, string? castUnderlying)
 	{
-		_sb.Append("\tpublic ").Append(publicType).Append(' ').Append(propName).Append(" { get => ");
+		_w.Append("public ").Append(publicType).Append(' ').Append(propName).Append(" { get => ");
 		if (castUnderlying != null)
-			_sb.Append('(').Append(publicType).Append(")(");
-		_sb.Append("Vtable.Read<").Append(underlying).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(def).Append(')');
+			_w.Append('(').Append(publicType).Append(")(");
+		_w.Append("Vtable.Read<").Append(underlying).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(def).Append(')');
 		if (castUnderlying != null)
-			_sb.Append(')');
-		_sb.Append("; set => Vtable.Write<").Append(underlying).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ");
+			_w.Append(')');
+		_w.Append("; set => Vtable.Write<").Append(underlying).Append(">(_buf, _pos, ").Append(vto).Append(", ").Append(absInline).Append(", ");
 		if (castUnderlying != null)
-			_sb.Append('(').Append(underlying).Append(')');
-		_sb.Append("value, ").Append(def).AppendLine("); }");
+			_w.Append('(').Append(underlying).Append(')');
+		_w.Append("value, ").Append(def).AppendLine("); }");
 	}
 
 	void EmitVectorReader(FieldDef f, string propName, int vto)
@@ -107,16 +111,18 @@ public sealed partial class CodeEmitter
 		if (elt.IsScalar())
 		{
 			string cs = elt.ToCSharpKeyword();
-			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			EmitIndirectNewPropertyGeneric("FlatVector", cs, propName, vto);
 			if (elt == SchemaBaseType.UByte && f.IsFlexBuffer)
-				_sb.Append("\tpublic FlexBuffer ").Append(propName).Append("FlexBuffer => FlexBuffer.GetRoot(").Append(propName).AppendLine(".AsSpan);");
-			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType) && IsValidCSharpIdentifier(f.NestedFlatBufferType!))
-				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append("Ref ").Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append("Ref.GetRootAs(").Append(propName).AppendLine(".AsSpan);");
+				_w.Append("public FlexBuffer ").Append(propName).Append("FlexBuffer => FlexBuffer.GetRoot(").Append(propName).AppendLine(".AsSpan);");
+			if (elt == SchemaBaseType.UByte && f.NestedFlatBufferType is { Length: > 0 } nestedType && IsValidCSharpIdentifier(nestedType))
+			{
+				_w.Append("public ").Append(nestedType).Append("Ref ").Append(propName).Append("Nested => ").Append(nestedType).Append("Ref.GetRootAs(").Append(propName).AppendLine(".AsSpan);");
+			}
 			return;
 		}
 		if (elt == SchemaBaseType.String)
 		{
-			_sb.Append("\tpublic FlatStringVector ").Append(propName).Append(" => new FlatStringVector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			EmitIndirectNewProperty("FlatStringVector", propName, vto);
 			return;
 		}
 		if (elt == SchemaBaseType.Obj && f.Type.ReferencedName != null)
@@ -126,18 +132,18 @@ public sealed partial class CodeEmitter
 			{
 				if (def is StructDef)
 				{
-					_sb.Append("\tpublic FlatVector<").Append(name).Append("> ").Append(propName).Append(" => new FlatVector<").Append(name).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					EmitIndirectNewPropertyGeneric("FlatVector", name, propName, vto);
 					return;
 				}
 				if (def is TableDef)
 				{
-					_sb.Append("\tpublic ").Append(name).Append("Ref").Append("Vector ").Append(propName).Append(" => new ").Append(name).Append("Ref").Append("Vector(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					EmitIndirectNewProperty(name + "RefVector", propName, vto);
 					return;
 				}
 				if (def is EnumDef ed)
 				{
 					string cs = ed.Underlying.ToCSharpKeyword();
-					_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+					EmitIndirectNewPropertyGeneric("FlatVector", cs, propName, vto);
 					return;
 				}
 			}

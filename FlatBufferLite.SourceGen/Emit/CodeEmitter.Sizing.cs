@@ -137,17 +137,17 @@ public sealed partial class CodeEmitter
 			}
 		}
 
-		_sb.Append("\tpublic static int GetMaxSize(");
+		_w.Append("public static int GetMaxSize(");
 		for (int i = 0; i < parameters.Count; i++)
 		{
 			if (i > 0)
-				_sb.Append(", ");
-			_sb.Append("int ").Append(parameters[i]).Append(" = 0");
+				_w.Append(", ");
+			_w.Append("int ").Append(parameters[i]).Append(" = 0");
 		}
-		_sb.Append(") => ").Append(constantSize);
+		_w.Append(") => ").Append(constantSize);
 		foreach (var term in terms)
-			_sb.Append(" + ").Append(term);
-		_sb.AppendLine(";");
+			_w.Append(" + ").Append(term);
+		_w.AppendLine(";");
 	}
 
 	int? TryGetKnownTableSize(TableDef table, HashSet<string> visiting)
@@ -219,5 +219,5 @@ public sealed partial class CodeEmitter
 	}
 
 	static string OffsetVectorSizeTerm(string countParameter)
-		=> countParameter + " * 4 + 7";
+	=> countParameter + " * 4 + 7";
 }

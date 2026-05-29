@@ -6,19 +6,17 @@ public sealed partial class CodeEmitter
 {
 	void EmitReserveConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic static ").Append(t.Name).Append("Ref").AppendLine(" Create(ref FlatBufferBuilder builder)");
-		_sb.AppendLine("\t{");
-		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
+		_w.Append("public static ").Append(t.Name).Append("Ref").AppendLine(" Create(ref FlatBufferBuilder builder)");
+		_w.OpenBlock();
+		EmitStartTable(t);
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
 				continue;
 			EmitFieldAssign(f, forced: true);
 		}
-		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
-		_sb.Append("\t\treturn new ").Append(t.Name).Append("Ref").AppendLine("(__buf, __pos);");
-		_sb.AppendLine("\t}");
+		EmitMarkRootAndReturnTableRef(t);
+		_w.CloseBlock();
 	}
 
 	void EmitFieldAssign(FieldDef f, bool forced)
@@ -30,26 +28,26 @@ public sealed partial class CodeEmitter
 		{
 			if (forced)
 			{
-				_sb.Append("\t\tVtable.WriteForced<byte>(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", 0);");
+				EmitWriteForced("byte", vto, absInline, "0");
 			}
 			else
 			{
 				int dataVto = vto + 2;
 				int dataAbsInline = f.UnionDataInlineOffset + 4;
-				_sb.Append("\t\tVtable.Write<byte>(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", (byte)").Append(pname).Append("Type, 0);");
-				_sb.AppendLine();
-				_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(dataVto).Append(", ").Append(dataAbsInline).Append(", ").Append(pname).AppendLine(");");
+				EmitWrite("byte", vto, absInline, "(byte)" + pname + "Type", "0");
+				_w.AppendLine();
+				EmitWriteOffsetIfPresent(dataVto, dataAbsInline, pname);
 			}
 			return;
 		}
 		if (f.Type.Base.IsScalar())
 		{
 			string cs = ScalarCSharpType(f.Type, out string defLit);
-			string schemaDefault = !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defLit;
+			string schemaDefault = f.DefaultValue is { Length: > 0 } defaultValue ? FormatDefault(f.Type, defaultValue) : defLit;
 			if (forced)
-				_sb.Append("\t\tVtable.WriteForced<").Append(cs).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(schemaDefault).AppendLine(");");
+				EmitWriteForced(cs, vto, absInline, schemaDefault);
 			else
-				_sb.Append("\t\tVtable.Write<").Append(cs).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).Append(", ").Append(schemaDefault).AppendLine(");");
+				EmitWrite(cs, vto, absInline, pname, schemaDefault);
 			return;
 		}
 		if (f.Type.IsString || f.Type.IsVector)
@@ -57,9 +55,9 @@ public sealed partial class CodeEmitter
 			if (!forced)
 			{
 				if (f.Required)
-					_sb.Append("\t\tVtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+					EmitWriteOffset(vto, absInline, pname);
 				else
-					_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+					EmitWriteOffsetIfPresent(vto, absInline, pname);
 			}
 			return;
 		}
@@ -70,70 +68,70 @@ public sealed partial class CodeEmitter
 				if (!forced)
 				{
 					if (f.Required)
-						_sb.Append("\t\tVtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+						EmitWriteOffset(vto, absInline, pname);
 					else
-						_sb.Append("\t\tif (").Append(pname).Append(" != 0) Vtable.WriteOffset(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(pname).AppendLine(");");
+						EmitWriteOffsetIfPresent(vto, absInline, pname);
 				}
 				return;
 			}
 			if (def is StructDef)
 			{
 				if (forced)
-					_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+					EmitWriteDefaultStruct(f.Type.ReferencedName, vto, absInline);
 				else
-					_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+					EmitWriteStruct(f.Type.ReferencedName, vto, absInline, pname);
 				return;
 			}
 			if (def is EnumDef ed)
 			{
 				string under = ed.Underlying.ToCSharpKeyword();
-				string defValue = !string.IsNullOrEmpty(f.DefaultValue)
-					? FormatEnumDefault(ed, f.DefaultValue!)
-					: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
+				string defValue = f.DefaultValue is { Length: > 0 } defaultValue
+				? FormatEnumDefault(ed, defaultValue)
+				: (ed.Underlying == SchemaBaseType.Long || ed.Underlying == SchemaBaseType.ULong ? "0L" : "0");
 				if (forced)
-					_sb.Append("\t\tVtable.WriteForced<").Append(under).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", ").Append(defValue).AppendLine(");");
+					EmitWriteForced(under, vto, absInline, defValue);
 				else
-					_sb.Append("\t\tVtable.Write<").Append(under).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).Append(", (").Append(under).Append(')').Append(pname).Append(", ").Append(defValue).AppendLine(");");
+					EmitWrite(under, vto, absInline, "(" + under + ")" + pname, defValue);
 				return;
 			}
 		}
 		else if (f.Type.IsObject && f.Type.ReferencedName != null)
 		{
 			if (forced)
-				_sb.Append("\t\t{ var __v = default(").Append(f.Type.ReferencedName).Append("); Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				EmitWriteDefaultStruct(f.Type.ReferencedName, vto, absInline);
 			else
-				_sb.Append("\t\t{ var __v = ").Append(pname).Append("; Vtable.WriteForced<").Append(f.Type.ReferencedName).Append(">(__buf, __pos, ").Append(vto).Append(", ").Append(absInline).AppendLine(", in __v); }");
+				EmitWriteStruct(f.Type.ReferencedName, vto, absInline, pname);
 		}
 	}
 
 	void EmitBuildConstructor(TableDef t)
 	{
-		_sb.Append("\tpublic static ").Append(t.Name).Append("Ref").Append(" Create(ref FlatBufferBuilder builder");
+		_w.Append("public static ").Append(t.Name).Append("Ref").Append(" Create(ref FlatBufferBuilder builder");
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
 				continue;
 			if (f.Type.IsUnion)
 			{
-				_sb.Append(", ").Append(f.Type.ReferencedName).Append("Kind ").Append(ToCamelCase(f.Name)).Append("Type = default");
-				_sb.Append(", int ").Append(ToCamelCase(f.Name)).Append(" = 0");
+				if (f.Type.ReferencedName == null)
+					continue;
+				_w.Append(", ").Append(f.Type.ReferencedName).Append("Kind ").Append(ToCamelCase(f.Name)).Append("Type = default");
+				_w.Append(", int ").Append(ToCamelCase(f.Name)).Append(" = 0");
 				continue;
 			}
-			_sb.Append(", ").Append(BuildParamType(f)).Append(' ').Append(ToCamelCase(f.Name)).Append(" = ").Append(BuildParamDefault(f));
+			_w.Append(", ").Append(BuildParamType(f)).Append(' ').Append(ToCamelCase(f.Name)).Append(" = ").Append(BuildParamDefault(f));
 		}
-		_sb.AppendLine(")");
-		_sb.AppendLine("\t{");
-		_sb.Append("\t\tint __pos = builder.StartTable(").Append(t.SlotCount).Append(", ").Append(t.InlineSize).Append(", ").Append(t.InlineAlign).AppendLine(");");
-		_sb.AppendLine("\t\tvar __buf = builder.Buffer;");
+		_w.AppendLine(")");
+		_w.OpenBlock();
+		EmitStartTable(t);
 		foreach (var f in t.Fields)
 		{
 			if (f.Deprecated)
 				continue;
 			EmitFieldAssign(f, forced: false);
 		}
-		_sb.AppendLine("\t\tbuilder.MarkRoot(__pos);");
-		_sb.Append("\t\treturn new ").Append(t.Name).Append("Ref").AppendLine("(__buf, __pos);");
-		_sb.AppendLine("\t}");
+		EmitMarkRootAndReturnTableRef(t);
+		_w.CloseBlock();
 	}
 
 	string BuildParamType(FieldDef f)
@@ -161,7 +159,7 @@ public sealed partial class CodeEmitter
 		if (f.Type.Base.IsScalar())
 		{
 			ScalarCSharpType(f.Type, out string defLit);
-			return !string.IsNullOrEmpty(f.DefaultValue) ? FormatDefault(f.Type, f.DefaultValue!) : defLit;
+			return f.DefaultValue is { Length: > 0 } defaultValue ? FormatDefault(f.Type, defaultValue) : defLit;
 		}
 		if (f.Type.IsString || f.Type.IsVector)
 			return "default";
@@ -173,11 +171,11 @@ public sealed partial class CodeEmitter
 				return "default";
 			if (def is EnumDef ed2)
 			{
-				if (!string.IsNullOrEmpty(f.DefaultValue))
+				if (f.DefaultValue is { Length: > 0 } defaultValue)
 				{
-					if (f.DefaultValue!.Length > 0 && (char.IsDigit(f.DefaultValue[0]) || f.DefaultValue[0] == '-'))
-						return "(" + ed2.Name + ")" + f.DefaultValue;
-					return ed2.Name + "." + f.DefaultValue;
+					if (char.IsDigit(defaultValue[0]) || defaultValue[0] == '-')
+						return "(" + ed2.Name + ")" + defaultValue;
+					return ed2.Name + "." + defaultValue;
 				}
 				return "default";
 			}

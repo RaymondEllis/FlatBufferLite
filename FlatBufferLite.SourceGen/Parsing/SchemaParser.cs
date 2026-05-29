@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 
 namespace FlatBufferLite.SourceGen.Parsing;
 
@@ -326,27 +327,37 @@ public sealed class SchemaParser
 		return schema;
 	}
 
-	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents, List<string>? missingIncludes = null)
+	public static Schema ParseWithIncludes(string entryFilePath, IReadOnlyDictionary<string, string> fileContents, List<string>? missingIncludes = null, CancellationToken cancellationToken = default)
 	{
 		// Normalise to forward slashes so the visited set is consistent regardless
 		// of how the caller constructed the path (Roslyn on Windows uses backslashes).
 		var normalized = SchemaPath.Normalize(entryFilePath);
 		var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { normalized };
-		return ParseWithIncludes(normalized, fileContents, visited, missingIncludes);
+		return ParseWithIncludes(normalized, fileContents, visited, missingIncludes, cancellationToken);
 	}
 
 	static bool TryLookupFile(IReadOnlyDictionary<string, string> files, string path, out string? content)
 	{
-		if (files.TryGetValue(path, out content!))
+		if (files.TryGetValue(path, out var found))
+		{
+			content = found;
 			return true;
+		}
 		// Try the other separator style; fileContents keys may use backslashes (Roslyn
 		// on Windows) or forward slashes (cross-platform dictionaries in tests).
 		var alt = path.IndexOf('/') >= 0 ? path.Replace('/', '\\') : path.Replace('\\', '/');
-		return files.TryGetValue(alt, out content!);
+		if (files.TryGetValue(alt, out found))
+		{
+			content = found;
+			return true;
+		}
+		content = null;
+		return false;
 	}
 
-	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited, List<string>? missingIncludes)
+	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited, List<string>? missingIncludes, CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		TryLookupFile(fileContents, filePath, out var source);
 		source ??= "";
 		// dir is the forward-slash directory portion of filePath (trailing slash included).
@@ -357,6 +368,7 @@ public sealed class SchemaParser
 
 		foreach (var include in schema.Includes)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			var resolved = SchemaPath.Normalize(dir + include);
 			if (!visited.Add(resolved))
 				continue;
@@ -365,7 +377,7 @@ public sealed class SchemaParser
 				missingIncludes?.Add(include);
 				continue;
 			}
-			var included = ParseWithIncludes(resolved, fileContents, visited, missingIncludes);
+			var included = ParseWithIncludes(resolved, fileContents, visited, missingIncludes, cancellationToken);
 			schema.MergeFrom(included);
 		}
 
