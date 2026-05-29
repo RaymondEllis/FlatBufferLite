@@ -11,15 +11,20 @@ public sealed partial class CodeEmitter
 			_refUnions.Add(u.Name);
 			return;
 		}
+		bool isRef = false;
 		foreach (var m in u.Members)
 		{
-			bool isManaged = _schema.ByName.TryGetValue(m.TypeName, out var def)
-				&& (def is StructDef || def is EnumDef);
-			if (!isManaged)
-			{
-				_refUnions.Add(u.Name);
-				return;
-			}
+			if (!(_schema.ByName.TryGetValue(m.TypeName, out var def) && (def is StructDef || def is EnumDef)))
+				isRef = true;
+		}
+		if (!isRef)
+			return;
+		_refUnions.Add(u.Name);
+		foreach (var m in u.Members)
+		{
+			if (_schema.ByName.TryGetValue(m.TypeName, out var def) &&
+				def is TableDef table && !table.PlainStruct && IsFixedSizeTable(table))
+				_autoPlainStructs.Add(table.Name);
 		}
 	}
 
@@ -169,52 +174,132 @@ public sealed partial class CodeEmitter
 
 	void EmitPlainUnion(UnionDef u)
 	{
+		if (!_refUnions.Contains(u.Name))
+			return;
+		if (!CanEmitPlainUnion(u))
+		{
+			foreach (var m in u.Members)
+				if (!TryGetPlainUnionMemberType(m, out _, out _))
+					_schema.Warnings.Add($"Union '{u.Name}' member '{m.Name}' ('{m.TypeName}') is not a fixed-size table; plain union '{u.Name}' will not be generated.");
+			return;
+		}
+
+		bool allBlittable = true;
+		int maxSize = 0, maxAlign = 1;
+		foreach (var m in u.Members)
+		{
+			if (!TryGetPlainUnionMemberType(m, out _, out var kind))
+				continue;
+			switch (kind)
+			{
+				case PlainUnionMemberKind.Struct when _schema.ByName[m.TypeName] is StructDef sd:
+					if (sd.Size > maxSize) maxSize = sd.Size;
+					if (sd.Alignment > maxAlign) maxAlign = sd.Alignment;
+					break;
+				case PlainUnionMemberKind.Enum when _schema.ByName[m.TypeName] is EnumDef ed:
+					int sz = ed.Underlying.InlineSize();
+					if (sz > maxSize) maxSize = sz;
+					if (sz > maxAlign) maxAlign = sz;
+					break;
+				case PlainUnionMemberKind.AutoPlain when _schema.ByName[m.TypeName] is TableDef td:
+					if (td.InlineSize > maxSize) maxSize = td.InlineSize;
+					if (td.InlineAlign > maxAlign) maxAlign = td.InlineAlign;
+					break;
+				default:
+					allBlittable = false;
+					break;
+			}
+		}
+
 		_sb.AppendLine();
 		_sb.AppendLine("[Union]");
-		_sb.Append("public partial struct ").Append(PlainUnionName(u)).AppendLine(" : IUnion");
-		_sb.AppendLine("{");
-		_sb.Append("\tpublic ").Append(u.Name).AppendLine("Kind Kind;");
-		foreach (var m in u.Members)
-		{
-			if (TryGetPlainUnionMemberType(m, out string memberType))
-				_sb.Append("\tpublic ").Append(memberType).Append("? ").Append(m.Name).AppendLine(";");
-		}
-		_sb.AppendLine();
-		_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"No boxing allowed.\");");
-		_sb.AppendLine("\tpublic readonly bool HasValue => Kind switch");
-		_sb.AppendLine("\t{");
-		foreach (var m in u.Members)
-			if (TryGetPlainUnionMemberType(m, out _))
-				_sb.Append("\t\t").Append(u.Name).Append("Kind.").Append(m.Name).Append(" => ").Append(m.Name).AppendLine(".HasValue,");
-		_sb.AppendLine("\t\t_ => false,");
-		_sb.AppendLine("\t};");
-		foreach (var m in u.Members)
-		{
-			if (!TryGetPlainUnionMemberType(m, out string memberType))
-				continue;
-			_sb.AppendLine();
-			_sb.Append("\tpublic ").Append(PlainUnionName(u)).Append("(in ").Append(memberType).AppendLine(" value)");
-			_sb.AppendLine("\t{");
-			_sb.AppendLine("\t\tthis = default;");
-			_sb.Append("\t\t").Append(m.Name).AppendLine(" = value;");
-			_sb.Append("\t\tKind = ").Append(u.Name).Append("Kind.").Append(m.Name).AppendLine(";");
-			_sb.AppendLine("\t}");
 
+		if (allBlittable)
+		{
+			int kindOffset = maxSize;
+			int totalSize = AlignUp(kindOffset + 1, maxAlign > 0 ? maxAlign : 1);
+			_sb.Append("[StructLayout(LayoutKind.Explicit, Size = ").Append(totalSize).AppendLine(")]");
+			_sb.Append("public readonly partial struct ").Append(u.Name).AppendLine(" : IUnion");
+			_sb.AppendLine("{");
+			_sb.Append("\t[FieldOffset(").Append(kindOffset).Append(")] public readonly ").Append(u.Name).AppendLine("Kind Kind;");
+			foreach (var m in u.Members)
+			{
+				if (!TryGetPlainUnionMemberType(m, out string memberType, out _))
+					continue;
+				_sb.Append("\t[FieldOffset(0)] public readonly ").Append(memberType).Append(' ').Append(m.Name).AppendLine(";");
+			}
 			_sb.AppendLine();
-			_sb.Append("\tpublic static implicit operator ").Append(PlainUnionName(u)).Append('(').Append(memberType).AppendLine(" value) => new(in value);");
-
-			_sb.AppendLine();
-			_sb.Append("\tpublic readonly bool TryGetValue(out ").Append(memberType).AppendLine(" value)");
-			_sb.AppendLine("\t{");
-			_sb.Append("\t\tif (Kind == ").Append(u.Name).Append("Kind.").Append(m.Name).Append(" && ").Append(m.Name).AppendLine(".HasValue)");
-			_sb.AppendLine("\t\t{");
-			_sb.Append("\t\t\tvalue = ").Append(m.Name).AppendLine(".GetValueOrDefault();");
-			_sb.AppendLine("\t\t\treturn true;");
-			_sb.AppendLine("\t\t}");
-			_sb.AppendLine("\t\tvalue = default;");
-			_sb.AppendLine("\t\treturn false;");
-			_sb.AppendLine("\t}");
+			_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"No boxing allowed.\");");
+			_sb.Append("\tpublic readonly bool HasValue => Kind != ").Append(u.Name).AppendLine("Kind.NONE;");
+			foreach (var m in u.Members)
+			{
+				if (!TryGetPlainUnionMemberType(m, out string memberType, out _))
+					continue;
+				_sb.AppendLine();
+				_sb.Append("\tpublic ").Append(u.Name).Append('(').Append(memberType).AppendLine(" value)");
+				_sb.AppendLine("\t{");
+				_sb.AppendLine("\t\tthis = default;");
+				_sb.Append("\t\t").Append(m.Name).AppendLine(" = value;");
+				_sb.Append("\t\tKind = ").Append(u.Name).Append("Kind.").Append(m.Name).AppendLine(";");
+				_sb.AppendLine("\t}");
+				_sb.AppendLine();
+				_sb.Append("\tpublic static implicit operator ").Append(u.Name).Append('(').Append(memberType).AppendLine(" value) => new(value);");
+				_sb.AppendLine();
+				_sb.Append("\tpublic readonly bool TryGetValue(out ").Append(memberType).AppendLine(" value)");
+				_sb.AppendLine("\t{");
+				_sb.Append("\t\tif (Kind == ").Append(u.Name).Append("Kind.").Append(m.Name).Append(") { value = ").Append(m.Name).AppendLine("; return true; }");
+				_sb.AppendLine("\t\tvalue = default;");
+				_sb.AppendLine("\t\treturn false;");
+				_sb.AppendLine("\t}");
+			}
+			_sb.AppendLine("}");
 		}
-		_sb.AppendLine("}");
+		else
+		{
+			_sb.Append("public readonly partial struct ").Append(u.Name).AppendLine(" : IUnion");
+			_sb.AppendLine("{");
+			_sb.Append("\tpublic readonly ").Append(u.Name).AppendLine("Kind Kind;");
+			foreach (var m in u.Members)
+			{
+				if (!TryGetPlainUnionMemberType(m, out string memberType, out _))
+					continue;
+				_sb.Append("\tpublic readonly ").Append(memberType).Append("? ").Append(m.Name).AppendLine(";");
+			}
+			_sb.AppendLine();
+			_sb.AppendLine("\tpublic object? Value => throw new NotImplementedException(\"No boxing allowed.\");");
+			_sb.AppendLine("\tpublic readonly bool HasValue => Kind switch");
+			_sb.AppendLine("\t{");
+			foreach (var m in u.Members)
+				if (TryGetPlainUnionMemberType(m, out _, out _))
+					_sb.Append("\t\t").Append(u.Name).Append("Kind.").Append(m.Name).Append(" => ").Append(m.Name).AppendLine(".HasValue,");
+			_sb.AppendLine("\t\t_ => false,");
+			_sb.AppendLine("\t};");
+			foreach (var m in u.Members)
+			{
+				if (!TryGetPlainUnionMemberType(m, out string memberType, out _))
+					continue;
+				_sb.AppendLine();
+				_sb.Append("\tpublic ").Append(u.Name).Append("(in ").Append(memberType).AppendLine(" value)");
+				_sb.AppendLine("\t{");
+				_sb.AppendLine("\t\tthis = default;");
+				_sb.Append("\t\t").Append(m.Name).AppendLine(" = value;");
+				_sb.Append("\t\tKind = ").Append(u.Name).Append("Kind.").Append(m.Name).AppendLine(";");
+				_sb.AppendLine("\t}");
+				_sb.AppendLine();
+				_sb.Append("\tpublic static implicit operator ").Append(u.Name).Append('(').Append(memberType).AppendLine(" value) => new(in value);");
+				_sb.AppendLine();
+				_sb.Append("\tpublic readonly bool TryGetValue(out ").Append(memberType).AppendLine(" value)");
+				_sb.AppendLine("\t{");
+				_sb.Append("\t\tif (Kind == ").Append(u.Name).Append("Kind.").Append(m.Name).Append(" && ").Append(m.Name).AppendLine(".HasValue)");
+				_sb.AppendLine("\t\t{");
+				_sb.Append("\t\t\tvalue = ").Append(m.Name).AppendLine(".GetValueOrDefault();");
+				_sb.AppendLine("\t\t\treturn true;");
+				_sb.AppendLine("\t\t}");
+				_sb.AppendLine("\t\tvalue = default;");
+				_sb.AppendLine("\t\treturn false;");
+				_sb.AppendLine("\t}");
+			}
+			_sb.AppendLine("}");
+		}
 	}
 }

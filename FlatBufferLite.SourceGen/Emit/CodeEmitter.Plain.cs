@@ -112,7 +112,7 @@ public sealed partial class CodeEmitter
 		if (type.IsUnion)
 		{
 			if (type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var unionObjectDef) && unionObjectDef is UnionDef union)
-				return PlainUnionName(union);
+				return union.Name;
 			return null;
 		}
 		if (type.IsObject && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
@@ -183,6 +183,11 @@ public sealed partial class CodeEmitter
 		}
 		if (field.Type.IsUnion)
 		{
+			if (field.Type.ReferencedName == null || !_refUnions.Contains(field.Type.ReferencedName))
+			{
+				_sb.Append(indent).Append("value.").Append(fieldName).Append(" = ").Append(fieldName).AppendLine(";");
+				return;
+			}
 			EmitPlainUnionReadAssign(field, indent);
 			return;
 		}
@@ -389,7 +394,7 @@ public sealed partial class CodeEmitter
 		bool refUnion = _refUnions.Contains(union.Name);
 		_sb.Append(indent).Append("var ").Append(source).Append(" = ").Append(fieldName).AppendLine(";");
 		_sb.Append(indent).Append("var ").Append(previous).Append(" = value.").Append(fieldName).AppendLine(";");
-		_sb.Append(indent).Append("var ").Append(target).Append(" = default(").Append(PlainUnionName(union)).AppendLine(");");
+		_sb.Append(indent).Append("var ").Append(target).Append(" = default(").Append(union.Name).AppendLine(");");
 		_sb.Append(indent).Append("if (").Append(source).AppendLine(".HasValue)");
 		_sb.Append(indent).AppendLine("{");
 		_sb.Append(indent).Append("\tswitch (").Append(fieldName).AppendLine("Type)");
@@ -408,16 +413,22 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).AppendLine("\t\t{");
 				_sb.Append(indent).Append("\t\t\tvar ").Append(valueLocal).Append(" = ").Append(previous).Append('.').Append(memberName).AppendLine(".GetValueOrDefault();");
 				_sb.Append(indent).Append("\t\t\t").Append(refLocal).Append(".ToPlain(ref ").Append(valueLocal).AppendLine(");");
-				_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
-				_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(valueLocal).AppendLine(";");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append(" = new(in ").Append(valueLocal).AppendLine(");");
 				_sb.Append(indent).AppendLine("\t\t}");
 			}
-			else if (memberKind == PlainUnionMemberKind.RefTable)
+			else if (memberKind == PlainUnionMemberKind.AutoPlain)
 			{
 				_sb.Append(indent).Append("\t\tif (").Append(source).Append(".TryGetAs").Append(memberName).Append("(out var ").Append(refLocal).AppendLine("))");
 				_sb.Append(indent).AppendLine("\t\t{");
-				_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
-				_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(refLocal).AppendLine(".AsOffset;");
+				_sb.Append(indent).Append("\t\t\tvar ").Append(valueLocal).Append(" = default(").Append(memberType).AppendLine(");");
+				_sb.Append(indent).Append("\t\t\t").Append(refLocal).Append(".ToPlain(ref ").Append(valueLocal).AppendLine(");");
+				if (IsBlittablePlainUnion(union))
+					_sb.Append(indent).Append("\t\t\t").Append(target).Append(" = new(").Append(valueLocal).AppendLine(");");
+				else
+				{
+					_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
+					_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(valueLocal).AppendLine(";");
+				}
 				_sb.Append(indent).AppendLine("\t\t}");
 			}
 			else if (!refUnion)
@@ -467,16 +478,22 @@ public sealed partial class CodeEmitter
 				_sb.Append(indent).Append("\t\t").Append(typeLocal).AppendLine(" = default;");
 				_sb.Append(indent).AppendLine("\t}");
 			}
-			else if (memberKind == PlainUnionMemberKind.RefTable)
+			else if (memberKind == PlainUnionMemberKind.AutoPlain)
 			{
-				_sb.Append(indent).Append("\tif (").Append(source).Append('.').Append(memberName).AppendLine(".HasValue)");
-				_sb.Append(indent).AppendLine("\t{");
-				_sb.Append(indent).Append("\t\t").Append(local).Append(" = ").Append(source).Append('.').Append(memberName).AppendLine(".GetValueOrDefault().Value;");
-				_sb.Append(indent).AppendLine("\t}");
-				_sb.Append(indent).AppendLine("\telse");
-				_sb.Append(indent).AppendLine("\t{");
-				_sb.Append(indent).Append("\t\t").Append(typeLocal).AppendLine(" = default;");
-				_sb.Append(indent).AppendLine("\t}");
+				if (IsBlittablePlainUnion(union))
+					_sb.Append(indent).Append("\t").Append(local).Append(" = ").Append(member.TypeName).Append(".Serialize(ref builder, in ").Append(source).Append('.').Append(memberName).AppendLine(").BufferPos;");
+				else
+				{
+					_sb.Append(indent).Append("\tif (").Append(source).Append('.').Append(memberName).AppendLine(".HasValue)");
+					_sb.Append(indent).AppendLine("\t{");
+					_sb.Append(indent).Append("\t\tvar ").Append(valueLocal).Append(" = ").Append(source).Append('.').Append(memberName).AppendLine(".GetValueOrDefault();");
+					_sb.Append(indent).Append("\t\t").Append(local).Append(" = ").Append(member.TypeName).Append(".Serialize(ref builder, in ").Append(valueLocal).AppendLine(").BufferPos;");
+					_sb.Append(indent).AppendLine("\t}");
+					_sb.Append(indent).AppendLine("\telse");
+					_sb.Append(indent).AppendLine("\t{");
+					_sb.Append(indent).Append("\t\t").Append(typeLocal).AppendLine(" = default;");
+					_sb.Append(indent).AppendLine("\t}");
+				}
 			}
 			else
 			{
@@ -563,20 +580,17 @@ public sealed partial class CodeEmitter
 		_sb.Append(", ").Append(parameterName).Append(": ").Append(PlainCreateArgument(field));
 	}
 
-
 	string RefUnionName(UnionDef union) => RefUnionName(union.Name);
 
 	string RefUnionName(string unionName) => unionName + "Ref";
-
-	string PlainUnionName(UnionDef union) => _refUnions.Contains(union.Name) ? union.Name : union.Name + "Plain";
 
 	enum PlainUnionMemberKind
 	{
 		None,
 		Struct,
 		Enum,
+		AutoPlain,
 		PlainTable,
-		RefTable,
 	}
 
 	bool CanEmitPlainUnion(UnionDef union)
@@ -584,6 +598,36 @@ public sealed partial class CodeEmitter
 		foreach (var member in union.Members)
 			if (!TryGetPlainUnionMemberType(member, out _))
 				return false;
+		return true;
+	}
+
+	bool IsBlittablePlainUnion(UnionDef union)
+	{
+		foreach (var member in union.Members)
+		{
+			if (!TryGetPlainUnionMemberType(member, out _, out var kind))
+				return false;
+			if (kind == PlainUnionMemberKind.PlainTable)
+				return false;
+		}
+		return true;
+	}
+
+	bool IsFixedSizeTable(TableDef table)
+	{
+		foreach (var field in table.Fields)
+		{
+			if (field.Deprecated) continue;
+			if (field.Type.Base == SchemaBaseType.String ||
+				field.Type.Base == SchemaBaseType.Vector ||
+				field.Type.Base == SchemaBaseType.Union)
+				return false;
+			if (field.Type.Base == SchemaBaseType.Obj &&
+				field.Type.ReferencedName != null &&
+				_schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) &&
+				def is TableDef)
+				return false;
+		}
 		return true;
 	}
 
@@ -616,8 +660,12 @@ public sealed partial class CodeEmitter
 			kind = PlainUnionMemberKind.PlainTable;
 			return true;
 		}
-		typeName = "Offset<" + member.TypeName + "Ref>";
-		kind = PlainUnionMemberKind.RefTable;
-		return true;
+		if (_autoPlainStructs.Contains(table.Name))
+		{
+			typeName = PlainName(table);
+			kind = PlainUnionMemberKind.AutoPlain;
+			return true;
+		}
+		return false;
 	}
 }

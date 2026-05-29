@@ -14,7 +14,6 @@ public class UnionTests
 	{
 		AssertGeneratedUnion(typeof(PointOrSize));
 		AssertGeneratedUnion(typeof(DirectionOrPoint));
-		AssertGeneratedUnion(typeof(DirectionOrPointPlain));
 		AssertGeneratedUnion(typeof(ShapeRef));
 		AssertGeneratedUnion(typeof(Shape));
 		AssertGeneratedUnion(typeof(MixedValueRef));
@@ -360,31 +359,6 @@ public class UnionTests
 	}
 
 	[Fact]
-	public void PlainUnion_EnumVariant_Works()
-	{
-		DirectionOrPointPlain value = Direction.East;
-
-		Assert.True(value.HasValue);
-		Assert.Equal(DirectionOrPointKind.Direction, value.Kind);
-		Assert.True(value.TryGetValue(out Direction direction));
-		Assert.Equal(Direction.East, direction);
-		Assert.False(value.TryGetValue(out Point _));
-	}
-
-	[Fact]
-	public void PlainUnion_StructVariant_Works()
-	{
-		DirectionOrPointPlain value = new Point { X = 13, Y = 14 };
-
-		Assert.True(value.HasValue);
-		Assert.Equal(DirectionOrPointKind.Point, value.Kind);
-		Assert.True(value.TryGetValue(out Point point));
-		Assert.Equal(13, point.X);
-		Assert.Equal(14, point.Y);
-		Assert.False(value.TryGetValue(out Direction _));
-	}
-
-	[Fact]
 	public void PlainUnion_MixedRefUnionStructVariant_Works()
 	{
 		MixedValue value = new MixedPoint { X = 21, Y = 22 };
@@ -394,7 +368,20 @@ public class UnionTests
 		Assert.True(value.TryGetValue(out MixedPoint point));
 		Assert.Equal(21, point.X);
 		Assert.Equal(22, point.Y);
-		Assert.False(value.TryGetValue(out Offset<MixedCircleRef> _));
+		Assert.False(value.TryGetValue(out MixedCircle _));
+	}
+
+	[Fact]
+	public void PlainUnion_ShapeVariant_Works()
+	{
+		Shape value = new Rect { W = 7.0f, H = 9.0f };
+
+		Assert.True(value.HasValue);
+		Assert.Equal(ShapeKind.Rect, value.Kind);
+		Assert.True(value.TryGetValue(out Rect readRect));
+		Assert.Equal(7.0f, readRect.W);
+		Assert.Equal(9.0f, readRect.H);
+		Assert.False(value.TryGetValue(out Circle _));
 	}
 
 	[Fact]
@@ -434,30 +421,24 @@ public class UnionTests
 	}
 
 	[Fact]
-	public void PlainUnion_CanCarryRefUnionTableOffset()
+	public void PlainUnion_MixedCircleVariant_Works()
 	{
-		Span<byte> buffer = stackalloc byte[512];
-		var builder = new FlatBufferBuilder(buffer);
-		var circle = MixedCircleRef.Create(ref builder, r: 6.75f);
-		var circleOffset = circle.AsOffset;
-		var value = new MixedValue(in circleOffset);
+		MixedValue value = new MixedCircle { R = 6.75f };
 
 		Assert.True(value.HasValue);
 		Assert.Equal(MixedValueKind.MixedCircle, value.Kind);
-		Assert.True(value.TryGetValue(out Offset<MixedCircleRef> readOffset));
-		Assert.Equal(circle.BufferPos, readOffset.Value);
+		Assert.True(value.TryGetValue(out MixedCircle readCircle));
+		Assert.Equal(6.75f, readCircle.R);
 	}
 
 	[Fact]
-	public void PlainStruct_WithRefUnionOffset_RoundTrips()
+	public void PlainStruct_WithMixedCircle_RoundTrips()
 	{
 		Span<byte> buffer = stackalloc byte[1024];
 		var builder = new FlatBufferBuilder(buffer);
-		var circle = MixedCircleRef.Create(ref builder, r: 8.5f);
-		var circleOffset = circle.AsOffset;
 		var source = new MixedPlainHolder
 		{
-			Value = new MixedValue(in circleOffset),
+			Value = new MixedCircle { R = 8.5f },
 		};
 
 		MixedPlainHolder.Serialize(ref builder, in source);
@@ -467,12 +448,12 @@ public class UnionTests
 		MixedPlainHolder.Deserialize(bytes, ref readPlain);
 
 		Assert.Equal(MixedValueKind.MixedCircle, readRef.ValueType);
-		Assert.True(readRef.Value.TryGetAsMixedCircle(out var readCircle));
-		Assert.Equal(8.5f, readCircle.R);
+		Assert.True(readRef.Value.TryGetAsMixedCircle(out var readCircleRef));
+		Assert.Equal(8.5f, readCircleRef.R);
 		Assert.True(readPlain.Value.HasValue);
 		Assert.Equal(MixedValueKind.MixedCircle, readPlain.Value.Kind);
-		Assert.True(readPlain.Value.TryGetValue(out Offset<MixedCircleRef> readOffset));
-		Assert.True(readOffset.Value > 0);
+		Assert.True(readPlain.Value.TryGetValue(out MixedCircle readCircle));
+		Assert.Equal(8.5f, readCircle.R);
 	}
 
 	[Fact]

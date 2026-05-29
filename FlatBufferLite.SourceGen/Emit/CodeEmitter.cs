@@ -10,6 +10,7 @@ public sealed partial class CodeEmitter
 	readonly Schema _schema;
 	readonly StringBuilder _sb = new();
 	readonly HashSet<string> _refUnions = new();
+	readonly HashSet<string> _autoPlainStructs = new();
 
 	public CodeEmitter(Schema schema) { _schema = schema; }
 
@@ -158,13 +159,13 @@ public sealed partial class CodeEmitter
 		_sb.AppendLine("\t[System.Diagnostics.CodeAnalysis.UnscopedRef]");
 		_sb.AppendLine("\tpublic void MarkAsRoot(ref FlatBufferBuilder builder) => builder.MarkRoot(_pos);");
 
-		if (t.PlainStruct)
+		if (t.PlainStruct || _autoPlainStructs.Contains(t.Name))
 			EmitPlainTableMethods(t);
 
 		_sb.AppendLine("}");
 
 		EmitTableVector(t);
-		if (t.PlainStruct)
+		if (t.PlainStruct || _autoPlainStructs.Contains(t.Name))
 			EmitPlainStruct(t);
 	}
 }

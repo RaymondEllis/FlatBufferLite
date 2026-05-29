@@ -383,10 +383,10 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 
 		Assert.Contains("public readonly ref struct ShapeRef : IUnion", code);
-		Assert.Contains("public partial struct Shape : IUnion", code);
-		Assert.Contains("public ShapeKind Kind;", code);
-		Assert.Contains("public Circle? Circle;", code);
-		Assert.Contains("public Rectangle? Rectangle;", code);
+		Assert.Contains("public readonly partial struct Shape : IUnion", code);
+		Assert.Contains("public readonly ShapeKind Kind;", code);
+		Assert.Contains("public readonly Circle? Circle;", code);
+		Assert.Contains("public readonly Rectangle? Rectangle;", code);
 		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
 		Assert.Contains("public readonly bool HasValue => Kind switch", code);
 		Assert.Contains("public Shape Shape;", code);
@@ -996,6 +996,7 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("public struct PointOrSize : IUnion", code);
 		Assert.DoesNotContain("ref struct PointOrSize", code);
+		Assert.DoesNotContain("PointOrSizePlain", code);
 		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
 		Assert.Contains("public readonly bool HasValue => Tag switch", code);
 		Assert.Contains("public readonly bool TryGetValue(out Point value)", code);
@@ -1020,10 +1021,16 @@ public class SourceGenFeatureTests
 		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
 		Assert.Contains("public bool TryGetAsCircle(out CircleRef value)", code);
 		Assert.DoesNotContain("TryGetAsPoint", code);
-		Assert.Contains("public partial struct Mixed : IUnion", code);
+		Assert.Contains("[StructLayout(LayoutKind.Explicit", code);
+		Assert.Contains("public readonly partial struct Mixed : IUnion", code);
 		Assert.DoesNotContain("MixedPlain", code);
-		Assert.Contains("public Point? Point;", code);
-		Assert.Contains("public Offset<CircleRef>? Circle;", code);
+		Assert.Contains("[FieldOffset(0)] public readonly Point Point;", code);
+		Assert.Contains("[FieldOffset(0)] public readonly Circle Circle;", code);
+		Assert.Contains("public Mixed(Circle value)", code);
+		Assert.Contains("public readonly bool TryGetValue(out Circle value)", code);
+		Assert.DoesNotContain("private int _pos;", code);
+		Assert.DoesNotContain("Offset<CircleRef>? Circle", code);
+		Assert.DoesNotContain("Mixed(in Offset<CircleRef>", code);
 	}
 
 	[Fact]
