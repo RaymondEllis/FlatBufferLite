@@ -97,7 +97,7 @@ public ref struct FlexBufferBuilder
 		Align(width);
 		WriteValue(root, width);
 		WriteByte((byte)width);
-		WriteByte(Pack(root.Type));
+		WriteByte(Pack(root.Type, width));
 		return _buffer.Slice(0, _pos);
 	}
 
@@ -174,7 +174,15 @@ public ref struct FlexBufferBuilder
 			throw new InvalidOperationException($"Buffer too small: {byteCount} bytes needed, {_buffer.Length - _pos} available.");
 	}
 
-	static byte Pack(FlexBufferType type) => (byte)(((byte)type << 2) | BitWidth);
+	static byte Pack(FlexBufferType type, int byteWidth = Width) => (byte)(((byte)type << 2) | ByteWidthToBitWidth(byteWidth));
+	static byte ByteWidthToBitWidth(int byteWidth) => byteWidth switch
+	{
+		1 => 0,
+		2 => 1,
+		4 => 2,
+		8 => BitWidth,
+		_ => throw new ArgumentOutOfRangeException(nameof(byteWidth), "FlexBuffer byte width must be 1, 2, 4, or 8."),
+	};
 }
 
 public readonly ref struct FlexBuffer
@@ -201,6 +209,8 @@ public readonly ref struct FlexBuffer
 		if (!IsValidByteWidth(byteWidth) || buffer.Length < byteWidth + 2)
 			throw new ArgumentException("FlexBuffer root byte width is invalid.", nameof(buffer));
 		byte packedType = buffer[^1];
+		if (UnpackByteWidth(packedType) != byteWidth)
+			throw new ArgumentException("FlexBuffer root type byte width does not match the root byte width.", nameof(buffer));
 		return new FlexBuffer(buffer, buffer.Length - 2 - byteWidth, UnpackType(packedType), byteWidth);
 	}
 

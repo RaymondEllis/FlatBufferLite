@@ -78,6 +78,19 @@ public class FlexBufferTests
 	{
 		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(stackalloc byte[] { 0, 1 }));
 		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(stackalloc byte[] { 0, 3, 0 }));
+		Assert.Throws<ArgumentException>(() => FlexBuffer.GetRoot(stackalloc byte[] { 0, 1, (byte)((byte)FlexBufferType.Int << 2 | 3) }));
+	}
+
+	[Fact]
+	public void NullRoot_UsesMatchingTypeBitWidth()
+	{
+		Span<byte> buf = stackalloc byte[16];
+		var b = new FlexBufferBuilder(buf);
+		var bytes = b.Finish(FlexBufferValue.Null);
+
+		Assert.Equal(1, bytes[^2]);
+		Assert.Equal(1, 1 << (bytes[^1] & 3));
+		Assert.True(FlexBuffer.GetRoot(bytes).IsNull);
 	}
 
 	[Fact]
