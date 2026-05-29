@@ -96,12 +96,18 @@ public sealed partial class CodeEmitter
 			for (int i = 0; i < unionCount; i++)
 				if (_schema.Unions[i].Namespace == ns)
 				{
+					if (NeedsSizeStruct(_schema.Unions[i]))
+						EmitSizeStruct(_schema.Unions[i]);
 					EmitUnion(_schema.Unions[i]);
 					EmitPlainUnion(_schema.Unions[i]);
 				}
 			for (int i = 0; i < tableCount; i++)
 				if (_schema.Tables[i].Namespace == ns)
+				{
+					if (!IsRootTable(_schema.Tables[i]))
+						EmitSizeStruct(_schema.Tables[i]);
 					EmitTable(_schema.Tables[i]);
+				}
 			if (namespaceName != null)
 				_w.AppendLine("}");
 		}

@@ -106,7 +106,7 @@ public class AllTypesTests
 	[Fact]
 	public void Refs_AbsentRefsAreInvalid()
 	{
-		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize(strValByteCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var rb = RefsRef.Create(ref b);
 		var r = new RefsRef(buf, rb.BufferPos);
@@ -125,7 +125,7 @@ public class AllTypesTests
 		ReadOnlySpan<float> floats = stackalloc float[] { 1.0f, -1.0f, 0.5f };
 		ReadOnlySpan<long> longs = stackalloc long[] { long.MinValue, 0L, long.MaxValue };
 
-		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 4, byteVecCount: 3, floatVecCount: 3, longVecCount: 3)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 4, byteVecCount: 3, floatVecCount: 3, longVecCount: 3, strVecCount: 0, strVecByteCount: 0, vec2VecCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var iv = b.CreateVector(ints);
 		var bv = b.CreateVector(bytes);
@@ -156,7 +156,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_StringVector_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(strVecCount: 3, strVecByteCount: 14)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0, byteVecCount: 0, floatVecCount: 0, longVecCount: 0, strVecCount: 3, strVecByteCount: 14, vec2VecCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 
 		int s0 = b.CreateString("alpha"u8);
@@ -183,7 +183,7 @@ public class AllTypesTests
 			new Vec2 { X = -3.5f, Y = 4.25f },
 			new Vec2 { X = 0.0f, Y = -0.5f },
 		};
-		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(vec2VecCount: 3)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0, byteVecCount: 0, floatVecCount: 0, longVecCount: 0, strVecCount: 0, strVecByteCount: 0, vec2VecCount: 3)];
 		var b = new FlatBufferBuilder(buf);
 		var vv = b.CreateVector(vecs);
 
@@ -200,7 +200,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_EmptyVectorIsValid()
 	{
-		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0)];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0, byteVecCount: 0, floatVecCount: 0, longVecCount: 0, strVecCount: 0, strVecByteCount: 0, vec2VecCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var empty = b.CreateVector<int>(ReadOnlySpan<int>.Empty);
 		var vb = VectorsRef.Create(ref b, intVec: empty);
@@ -213,7 +213,7 @@ public class AllTypesTests
 	[Fact]
 	public void Vectors_AbsentVectorIsInvalid()
 	{
-		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[VectorsRef.GetMaxSize(intVecCount: 0, byteVecCount: 0, floatVecCount: 0, longVecCount: 0, strVecCount: 0, strVecByteCount: 0, vec2VecCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var vb = VectorsRef.Create(ref b);
 		var v = new VectorsRef(buf, vb.BufferPos);
@@ -279,7 +279,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_RectangleVariant_RoundTrips()
 	{
-		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 7)];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 7, tagByteCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 
 		var nameOff = b.CreateString("my-rect"u8);
@@ -299,7 +299,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_AbsentUnionIsNone()
 	{
-		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 0, tagByteCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var wu = WithUnionRef.Create(ref b);
 		var read = new WithUnionRef(buf, wu.BufferPos);
@@ -311,7 +311,7 @@ public class AllTypesTests
 	[Fact]
 	public void Union_FieldAfterUnion_CorrectVTableOffset()
 	{
-		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(tagByteCount: 8)];
+		Span<byte> buf = stackalloc byte[WithUnionRef.GetMaxSize(nameByteCount: 0, tagByteCount: 8)];
 		var b = new FlatBufferBuilder(buf);
 
 		var sentinel = b.CreateString("sentinel"u8);

@@ -175,7 +175,7 @@ public class UnionTests
 	[Fact]
 	public void RefUnion_CircleVariant_RoundTrips()
 	{
-		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize()];
+		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 0)];
 		var builder = new FlatBufferBuilder(buffer);
 
 		var circle = CircleRef.Create(ref builder, r: 5.5f);
@@ -195,7 +195,7 @@ public class UnionTests
 	[Fact]
 	public void RefUnion_NoneVariant_RoundTrips()
 	{
-		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize()];
+		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 0)];
 		var builder = new FlatBufferBuilder(buffer);
 		SceneRef.Create(ref builder);
 
@@ -210,7 +210,7 @@ public class UnionTests
 	[Fact]
 	public void RefUnion_FieldAfterUnion_UsesCorrectOffset()
 	{
-		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize()];
+		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 0)];
 		var builder = new FlatBufferBuilder(buffer);
 
 		var circle = CircleRef.Create(ref builder, r: 1.0f);
@@ -226,7 +226,7 @@ public class UnionTests
 	[Fact]
 	public void RefUnion_CanBeCreatedFromMemberRef()
 	{
-		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize()];
+		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 0)];
 		var builder = new FlatBufferBuilder(buffer);
 
 		var rect = RectRef.Create(ref builder, w: 4.0f, h: 8.0f);
@@ -242,7 +242,7 @@ public class UnionTests
 	[Fact]
 	public void RefUnion_Value_ThrowsNoBoxing()
 	{
-		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize()];
+		Span<byte> buffer = stackalloc byte[SceneRef.GetMaxSize(nameByteCount: 0)];
 		var builder = new FlatBufferBuilder(buffer);
 		var rect = RectRef.Create(ref builder, w: 4.0f, h: 8.0f);
 		ShapeRef shape = rect;

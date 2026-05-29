@@ -465,14 +465,37 @@ public class SourceGenFeatureTests
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("public static int GetMaxSize() => ", code);
+		Assert.DoesNotContain("public readonly struct SimpleSize", code);
 		Assert.DoesNotContain("TableMaxSize", code);
 		Assert.DoesNotContain("public int GetSize()", code);
 	}
 
 	[Fact]
+	public void GetMaxSize_NonRootTable_ReturnsTypedSize()
+	{
+		var source = """
+			table Child { name: string; }
+			table Parent { child: Child; }
+			root_type Parent;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("public readonly struct ChildSize", code);
+		Assert.Contains("public readonly int Value;", code);
+		Assert.Contains("public ChildSize(int value) => Value = value;", code);
+		Assert.Contains("public static implicit operator int(ChildSize size) => size.Value;", code);
+		Assert.DoesNotContain("operator +", code);
+		Assert.Contains("public static ChildSize GetMaxSize(int nameByteCount) => new ChildSize(", code);
+		Assert.Contains("public static int GetMaxSize(ChildSize childMaxSize)", code);
+		Assert.DoesNotContain("GetMaxSize(int nameByteCount = 0)", code);
+		Assert.DoesNotContain("GetMaxSize(ChildSize childMaxSize = default)", code);
+	}
+
+	[Fact]
 	public void GetMaxSize_CoversScalarOnlyBuffer()
 	{
-		int needed = Sample.PlayerRef.GetMaxSize();
+		int needed = Sample.PlayerRef.GetMaxSize(nameByteCount: 0, inventoryCount: 0);
 		Span<byte> buf = stackalloc byte[needed];
 		var b = new FlatBufferBuilder(buf);
 		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 1, hp: 50);
@@ -542,7 +565,8 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("childMaxSize", code);
+		Assert.Contains("ChildSize childMaxSize", code);
+		Assert.DoesNotContain("ChildSize childMaxSize = default", code);
 	}
 
 	[Fact]
@@ -570,7 +594,10 @@ public class SourceGenFeatureTests
 				""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("shapeMaxSize", code);
+		Assert.Contains("public readonly struct ShapeSize", code);
+		Assert.Contains("public static implicit operator ShapeSize(CircleSize size) => new(size.Value);", code);
+		Assert.Contains("ShapeSize shapeMaxSize", code);
+		Assert.DoesNotContain("int shapeMaxSize", code);
 	}
 
 	[Fact]
@@ -1091,7 +1118,8 @@ public class SourceGenFeatureTests
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("itemsCount", code);
-		Assert.Contains("itemsMaxSize", code);
+		Assert.Contains("ItemSize itemsMaxSize", code);
+		Assert.DoesNotContain("ItemSize itemsMaxSize = default", code);
 		Assert.DoesNotContain("itemsMaxSizeEach", code);
 	}
 

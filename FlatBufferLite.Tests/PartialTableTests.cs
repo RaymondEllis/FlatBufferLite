@@ -29,7 +29,7 @@ public class PartialTableTests
 	[Fact]
 	public void Refs_PartialTable_UserMethod_DetectsNonZeroVec2()
 	{
-		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize(strValByteCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		RefsRef.Create(ref b, vec2Val: new Vec2 { X = 1.0f, Y = 0.0f });
 		var span = b.Finish();
@@ -41,7 +41,7 @@ public class PartialTableTests
 	[Fact]
 	public void Refs_PartialTable_UserMethod_ZeroVec2_ReturnsFalse()
 	{
-		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[RefsRef.GetMaxSize(strValByteCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		RefsRef.Create(ref b);
 		var span = b.Finish();

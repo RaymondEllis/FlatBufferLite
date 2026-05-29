@@ -7,7 +7,7 @@ public class IncludeRuntimeTests
 	[Fact]
 	public void IncludedStruct_CanBeUsedInTable()
 	{
-		Span<byte> buf = stackalloc byte[ChunkRef.GetMaxSize()];
+		Span<byte> buf = stackalloc byte[ChunkRef.GetMaxSize(dataCount: 0)];
 		var b = new FlatBufferBuilder(buf);
 		var chunk = ChunkRef.Create(ref b, pos: new Vector3I { X = 10, Y = 20, Z = 30 });
 
@@ -27,7 +27,7 @@ public class IncludeRuntimeTests
 	[Fact]
 	public void IncludedStruct_ZeroAlloc_RoundTrip()
 	{
-		var buf = new byte[ChunkRef.GetMaxSize()];
+		var buf = new byte[ChunkRef.GetMaxSize(dataCount: 0)];
 		Warm(buf);
 
 		long before = GC.GetAllocatedBytesForCurrentThread();

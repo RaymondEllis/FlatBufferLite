@@ -90,7 +90,7 @@ ReadOnlySpan<byte> bytes = b.Finish();
 
 ### Pre-allocating buffers with `GetMaxSize`
 
-Every generated table has one sizing method: `GetMaxSize(...)`. Use it to size the initial buffer before writing. Tables with only fixed-size fields have no parameters, so the generated method returns a literal. Fixed-size nested tables and fixed-size ref union payloads are folded into that generated size. Dynamic strings, vectors, or variable nested payloads accept only the counts or byte totals needed to calculate the upper bound.
+Every generated table has one sizing method: `GetMaxSize(...)`. Use it to size the initial buffer before writing. Root tables return `int`; non-root tables return a typed `{Name}Size` wrapper with a single `Value` field and an implicit cast to `int`. Variable ref union payloads use a typed `{Union}Size` wrapper. Tables with only fixed-size fields have no parameters, so the generated method returns a literal or typed literal. Fixed-size nested tables and fixed-size ref union payloads are folded into that generated size. Dynamic strings, vectors, or variable nested payloads accept only the counts or byte totals needed to calculate the upper bound. Generated sizing parameters are required; pass `0` explicitly for dynamic fields you are not writing.
 
 ```csharp
 Span<byte> buf = stackalloc byte[PlayerRef.GetMaxSize()];
@@ -123,15 +123,18 @@ int bufSize = RefsRef.GetMaxSize(strValByteCount: 11);
 Variable nested payloads compose through the same method:
 
 ```csharp
+LoadoutSize loadoutSize = LoadoutRef.GetMaxSize(labelByteCount: 8);
+
 int bufSize = MonsterRef.GetMaxSize(
-    loadoutMaxSize: LoadoutRef.GetMaxSize(labelByteCount: 8));
+    loadoutMaxSize: loadoutSize);
 ```
 
 For a vector of fixed-size tables, only the vector count is needed. For a vector of variable-size tables, also pass the total max-size budget for all elements:
 
 ```csharp
-int weaponBytes = WeaponRef.GetMaxSize(nameByteCount: 5)
-    + WeaponRef.GetMaxSize(nameByteCount: 4);
+WeaponSize firstWeapon = WeaponRef.GetMaxSize(nameByteCount: 5);
+WeaponSize secondWeapon = WeaponRef.GetMaxSize(nameByteCount: 4);
+WeaponSize weaponBytes = new WeaponSize(firstWeapon.Value + secondWeapon.Value);
 
 int bufSize = MonsterRef.GetMaxSize(
     nameByteCount: 6,
@@ -146,9 +149,11 @@ int bufSize = WithUnionRef.GetMaxSize(
     nameByteCount: 9,
     tagByteCount: 11);
 
+ShapeSize shapeSize = NamedShapeRef.GetMaxSize(labelByteCount: 6);
+
 int bufSizeWithVariableShape = WithUnionRef.GetMaxSize(
     nameByteCount: 9,
-    shapeMaxSize: NamedShapeRef.GetMaxSize(labelByteCount: 6),
+    shapeMaxSize: shapeSize,
     tagByteCount: 11);
 ```
 
