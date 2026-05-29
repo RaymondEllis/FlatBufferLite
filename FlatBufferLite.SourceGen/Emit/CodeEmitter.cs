@@ -2,17 +2,23 @@ using FlatBufferLite.SourceGen.IR;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 
 namespace FlatBufferLite.SourceGen.Emit;
 
 public sealed partial class CodeEmitter
 {
 	readonly Schema _schema;
+	readonly CancellationToken _cancellationToken;
 	readonly StringBuilder _sb = new();
 	readonly HashSet<string> _refUnions = new();
 	readonly HashSet<string> _autoPlainStructs = new();
 
-	public CodeEmitter(Schema schema) { _schema = schema; }
+	public CodeEmitter(Schema schema, CancellationToken cancellationToken = default) 
+	{ 
+		_schema = schema; 
+		_cancellationToken = cancellationToken;
+	}
 
 	public string Emit()
 	{
@@ -44,7 +50,10 @@ public sealed partial class CodeEmitter
 		int tableCount = _schema.LocalTableCount;
 
 		for (int i = 0; i < unionCount; i++)
+		{
+			_cancellationToken.ThrowIfCancellationRequested();
 			PreclassifyUnion(_schema.Unions[i]);
+		}
 
 		var namespaces = new List<string?>();
 		var nsSeen = new HashSet<string?>();
@@ -64,6 +73,7 @@ public sealed partial class CodeEmitter
 
 		foreach (var ns in namespaces)
 		{
+			_cancellationToken.ThrowIfCancellationRequested();
 			bool hasNs = !string.IsNullOrEmpty(ns);
 			if (hasNs)
 			{
