@@ -369,6 +369,37 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
+	public void PlainStruct_UnionEmitsPlainDiscriminatedUnion()
+	{
+		var source = """
+			attribute "plain_struct";
+			table Circle (plain_struct) { radius: float; label: string; }
+			table Rectangle (plain_struct) { width: float; height: float; }
+			union Shape { Circle, Rectangle }
+			table Native (plain_struct) { shape: Shape; }
+			root_type Native;
+			""";
+		var schema = new SchemaParser(source).Parse();
+		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
+
+		Assert.Contains("public readonly ref struct ShapeRef : IUnion", code);
+		Assert.Contains("public partial struct Shape : IUnion", code);
+		Assert.Contains("public ShapeKind Kind;", code);
+		Assert.Contains("public Circle? Circle;", code);
+		Assert.Contains("public Rectangle? Rectangle;", code);
+		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
+		Assert.Contains("public readonly bool HasValue => Kind switch", code);
+		Assert.Contains("public Shape Shape;", code);
+		Assert.Contains("public Shape(in Circle value)", code);
+		Assert.Contains("public static implicit operator Shape(Circle value) => new(in value);", code);
+		Assert.Contains("public readonly bool TryGetValue(out Circle value)", code);
+		Assert.Contains("ShapeKind __ShapeType = value.Shape.Kind;", code);
+		Assert.Contains("shapeType: __ShapeType, shape: __Shape", code);
+		Assert.Contains("if (__ShapeSource.TryGetAsCircle(out var __ShapeCircleRef))", code);
+		Assert.Contains("value.Shape = __ShapeTarget;", code);
+	}
+
+	[Fact]
 	public void FieldAttribute_Id_AssignsExplicitVTableSlots()
 	{
 		var source = """
@@ -965,14 +996,15 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("public struct PointOrSize : IUnion", code);
 		Assert.DoesNotContain("ref struct PointOrSize", code);
+		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
+		Assert.Contains("public readonly bool HasValue => Tag switch", code);
 		Assert.Contains("public readonly bool TryGetValue(out Point value)", code);
 		Assert.Contains("public readonly bool TryGetValue(out Size value)", code);
-		Assert.Contains("public static PointOrSize FromPoint(Point value)", code);
-		Assert.Contains("public static PointOrSize FromSize(Size value)", code);
+		Assert.Contains("public static implicit operator PointOrSize(Point value) => new(value);", code);
 	}
 
 	[Fact]
-	public void OpaqueUnion_MixedStructAndTable_EmittedWithoutTryGetAs()
+	public void OpaqueUnion_MixedStructAndTable_EmitsRefUnionInterfaceAndTableAccessors()
 	{
 		var source = """
 			struct Point { x: int; y: int; }
@@ -983,8 +1015,15 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public readonly ref struct Mixed : IUnion", code);
-		Assert.DoesNotContain("TryGetAs", code);
+		Assert.Contains("[Union]", code);
+		Assert.Contains("public readonly ref struct MixedRef : IUnion", code);
+		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
+		Assert.Contains("public bool TryGetAsCircle(out CircleRef value)", code);
+		Assert.DoesNotContain("TryGetAsPoint", code);
+		Assert.Contains("public partial struct Mixed : IUnion", code);
+		Assert.DoesNotContain("MixedPlain", code);
+		Assert.Contains("public Point? Point;", code);
+		Assert.Contains("public Offset<CircleRef>? Circle;", code);
 	}
 
 	[Fact]

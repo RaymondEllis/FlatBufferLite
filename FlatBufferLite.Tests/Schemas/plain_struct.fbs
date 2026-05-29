@@ -36,6 +36,30 @@ table CollectionBag (plain_struct) {
 	qualities: [Quality] (CustomCollection);
 }
 
+table PlainCircle (plain_struct) {
+	radius: float;
+	label: string;
+}
+
+table PlainRectangle (plain_struct) {
+	width: float;
+	height: float;
+}
+
+union PlainShape {
+	PlainCircle,
+	PlainRectangle,
+}
+
+table ShapeHolder (plain_struct) {
+	name: string;
+	shape: PlainShape;
+}
+
+table RefShapeHolder {
+	shape: PlainShape;
+}
+
 table Label {
 	name: string;
 }

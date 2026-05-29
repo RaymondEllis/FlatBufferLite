@@ -33,7 +33,7 @@ public sealed partial class CodeEmitter
 		{
 			if (field.Deprecated || PlainFieldType(field) == null)
 				continue;
-			_sb.Append(", ").Append(ToCamelCase(field.Name)).Append(": ").Append(PlainCreateArgument(field));
+			EmitPlainCreateArgument(field);
 		}
 		_sb.AppendLine(");");
 		_sb.AppendLine("\t}");
@@ -110,7 +110,11 @@ public sealed partial class CodeEmitter
 		if (type.IsString)
 			return customCollection ? "IFlatBufferCollection<byte>?" : "byte[]?";
 		if (type.IsUnion)
+		{
+			if (type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var unionObjectDef) && unionObjectDef is UnionDef union)
+				return PlainUnionName(union);
 			return null;
+		}
 		if (type.IsObject && type.ReferencedName != null && _schema.ByName.TryGetValue(type.ReferencedName, out var def))
 		{
 			if (def is TableDef table)
@@ -175,6 +179,11 @@ public sealed partial class CodeEmitter
 				EmitPlainStringCollectionReadAssign(fieldName, indent);
 			else
 				_sb.Append(indent).Append("value.").Append(fieldName).Append(" = ").Append(fieldName).Append(".IsValid ? ").Append(fieldName).AppendLine(".AsBytes.ToArray() : null;");
+			return;
+		}
+		if (field.Type.IsUnion)
+		{
+			EmitPlainUnionReadAssign(field, indent);
 			return;
 		}
 		if (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.PlainStruct)
@@ -359,8 +368,126 @@ public sealed partial class CodeEmitter
 			_sb.Append(indent).Append("Offset<").Append(field.Type.ReferencedName).Append("Ref> ").Append(local).Append(" = value.").Append(fieldName).Append(".HasValue ? ").Append(PlainName(table)).Append(".Serialize(ref builder, in value.").Append(fieldName).Append(".GetValueOrDefault()).AsOffset : default;").AppendLine();
 			return;
 		}
+		if (field.Type.IsUnion)
+		{
+			EmitPlainUnionCreateLocal(field, indent);
+			return;
+		}
 		if (field.Type.IsVector)
 			EmitPlainVectorCreateLocal(field, indent);
+	}
+
+	void EmitPlainUnionReadAssign(FieldDef field, string indent)
+	{
+		if (field.Type.ReferencedName == null || !_schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) || def is not UnionDef union)
+			return;
+
+		string fieldName = ToPascalCase(field.Name);
+		string source = "__" + fieldName + "Source";
+		string previous = "__" + fieldName + "Previous";
+		string target = "__" + fieldName + "Target";
+		bool refUnion = _refUnions.Contains(union.Name);
+		_sb.Append(indent).Append("var ").Append(source).Append(" = ").Append(fieldName).AppendLine(";");
+		_sb.Append(indent).Append("var ").Append(previous).Append(" = value.").Append(fieldName).AppendLine(";");
+		_sb.Append(indent).Append("var ").Append(target).Append(" = default(").Append(PlainUnionName(union)).AppendLine(");");
+		_sb.Append(indent).Append("if (").Append(source).AppendLine(".HasValue)");
+		_sb.Append(indent).AppendLine("{");
+		_sb.Append(indent).Append("\tswitch (").Append(fieldName).AppendLine("Type)");
+		_sb.Append(indent).AppendLine("\t{");
+		foreach (var member in union.Members)
+		{
+			if (!TryGetPlainUnionMemberType(member, out string memberType, out var memberKind))
+				continue;
+			string memberName = member.Name;
+			string refLocal = "__" + fieldName + memberName + "Ref";
+			string valueLocal = "__" + fieldName + memberName;
+			_sb.Append(indent).Append("\tcase ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(":");
+			if (memberKind == PlainUnionMemberKind.PlainTable)
+			{
+				_sb.Append(indent).Append("\t\tif (").Append(source).Append(".TryGetAs").Append(memberName).Append("(out var ").Append(refLocal).AppendLine("))");
+				_sb.Append(indent).AppendLine("\t\t{");
+				_sb.Append(indent).Append("\t\t\tvar ").Append(valueLocal).Append(" = ").Append(previous).Append('.').Append(memberName).AppendLine(".GetValueOrDefault();");
+				_sb.Append(indent).Append("\t\t\t").Append(refLocal).Append(".ToPlain(ref ").Append(valueLocal).AppendLine(");");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(valueLocal).AppendLine(";");
+				_sb.Append(indent).AppendLine("\t\t}");
+			}
+			else if (memberKind == PlainUnionMemberKind.RefTable)
+			{
+				_sb.Append(indent).Append("\t\tif (").Append(source).Append(".TryGetAs").Append(memberName).Append("(out var ").Append(refLocal).AppendLine("))");
+				_sb.Append(indent).AppendLine("\t\t{");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(refLocal).AppendLine(".AsOffset;");
+				_sb.Append(indent).AppendLine("\t\t}");
+			}
+			else if (!refUnion)
+			{
+				_sb.Append(indent).Append("\t\tif (").Append(source).Append(".TryGetValue(out ").Append(memberType).Append(' ').Append(valueLocal).AppendLine("))");
+				_sb.Append(indent).AppendLine("\t\t{");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append(".Kind = ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(";");
+				_sb.Append(indent).Append("\t\t\t").Append(target).Append('.').Append(memberName).Append(" = ").Append(valueLocal).AppendLine(";");
+				_sb.Append(indent).AppendLine("\t\t}");
+			}
+			_sb.Append(indent).AppendLine("\t\tbreak;");
+		}
+		_sb.Append(indent).AppendLine("\t}");
+		_sb.Append(indent).AppendLine("}");
+		_sb.Append(indent).Append("value.").Append(fieldName).Append(" = ").Append(target).AppendLine(";");
+	}
+
+	void EmitPlainUnionCreateLocal(FieldDef field, string indent)
+	{
+		if (field.Type.ReferencedName == null || !_schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) || def is not UnionDef union)
+			return;
+
+		string fieldName = ToPascalCase(field.Name);
+		string local = "__" + fieldName;
+		string typeLocal = local + "Type";
+		string source = "value." + fieldName;
+		_sb.Append(indent).Append(union.Name).Append("Kind ").Append(typeLocal).Append(" = ").Append(source).AppendLine(".Kind;");
+		_sb.Append(indent).Append("int ").Append(local).AppendLine(" = 0;");
+		_sb.Append(indent).Append("switch (").Append(typeLocal).AppendLine(")");
+		_sb.Append(indent).AppendLine("{");
+		foreach (var member in union.Members)
+		{
+			if (!TryGetPlainUnionMemberType(member, out _, out var memberKind))
+				continue;
+			string memberName = member.Name;
+			string valueLocal = local + memberName;
+			_sb.Append(indent).Append("case ").Append(union.Name).Append("Kind.").Append(memberName).AppendLine(":");
+			if (memberKind == PlainUnionMemberKind.PlainTable)
+			{
+				_sb.Append(indent).Append("\tif (").Append(source).Append('.').Append(memberName).AppendLine(".HasValue)");
+				_sb.Append(indent).AppendLine("\t{");
+				_sb.Append(indent).Append("\t\tvar ").Append(valueLocal).Append(" = ").Append(source).Append('.').Append(memberName).AppendLine(".GetValueOrDefault();");
+				_sb.Append(indent).Append("\t\t").Append(local).Append(" = ").Append(member.TypeName).Append(".Serialize(ref builder, in ").Append(valueLocal).AppendLine(").BufferPos;");
+				_sb.Append(indent).AppendLine("\t}");
+				_sb.Append(indent).AppendLine("\telse");
+				_sb.Append(indent).AppendLine("\t{");
+				_sb.Append(indent).Append("\t\t").Append(typeLocal).AppendLine(" = default;");
+				_sb.Append(indent).AppendLine("\t}");
+			}
+			else if (memberKind == PlainUnionMemberKind.RefTable)
+			{
+				_sb.Append(indent).Append("\tif (").Append(source).Append('.').Append(memberName).AppendLine(".HasValue)");
+				_sb.Append(indent).AppendLine("\t{");
+				_sb.Append(indent).Append("\t\t").Append(local).Append(" = ").Append(source).Append('.').Append(memberName).AppendLine(".GetValueOrDefault().Value;");
+				_sb.Append(indent).AppendLine("\t}");
+				_sb.Append(indent).AppendLine("\telse");
+				_sb.Append(indent).AppendLine("\t{");
+				_sb.Append(indent).Append("\t\t").Append(typeLocal).AppendLine(" = default;");
+				_sb.Append(indent).AppendLine("\t}");
+			}
+			else
+			{
+				_sb.Append(indent).Append("\t").Append(typeLocal).AppendLine(" = default;");
+			}
+			_sb.Append(indent).AppendLine("\tbreak;");
+		}
+		_sb.Append(indent).AppendLine("default:");
+		_sb.Append(indent).Append("\t").Append(typeLocal).AppendLine(" = default;");
+		_sb.Append(indent).AppendLine("\tbreak;");
+		_sb.Append(indent).AppendLine("}");
 	}
 
 	void EmitPlainVectorCreateLocal(FieldDef field, string indent)
@@ -420,5 +547,77 @@ public sealed partial class CodeEmitter
 		if (field.Type.IsString || field.Type.IsVector || (field.Type.IsObject && field.Type.ReferencedName != null && _schema.ByName.TryGetValue(field.Type.ReferencedName, out var def) && def is TableDef table && table.PlainStruct))
 			return "__" + ToPascalCase(field.Name);
 		return "value." + ToPascalCase(field.Name);
+	}
+
+	void EmitPlainCreateArgument(FieldDef field)
+	{
+		string fieldName = ToPascalCase(field.Name);
+		string parameterName = ToCamelCase(field.Name);
+		if (field.Type.IsUnion)
+		{
+			_sb.Append(", ").Append(parameterName).Append("Type: __").Append(fieldName).Append("Type");
+			_sb.Append(", ").Append(parameterName).Append(": __").Append(fieldName);
+			return;
+		}
+
+		_sb.Append(", ").Append(parameterName).Append(": ").Append(PlainCreateArgument(field));
+	}
+
+
+	string RefUnionName(UnionDef union) => RefUnionName(union.Name);
+
+	string RefUnionName(string unionName) => unionName + "Ref";
+
+	string PlainUnionName(UnionDef union) => _refUnions.Contains(union.Name) ? union.Name : union.Name + "Plain";
+
+	enum PlainUnionMemberKind
+	{
+		None,
+		Struct,
+		Enum,
+		PlainTable,
+		RefTable,
+	}
+
+	bool CanEmitPlainUnion(UnionDef union)
+	{
+		foreach (var member in union.Members)
+			if (!TryGetPlainUnionMemberType(member, out _))
+				return false;
+		return true;
+	}
+
+	bool TryGetPlainUnionMemberType(UnionMember member, out string typeName)
+		=> TryGetPlainUnionMemberType(member, out typeName, out _);
+
+	bool TryGetPlainUnionMemberType(UnionMember member, out string typeName, out PlainUnionMemberKind kind)
+	{
+		typeName = "";
+		kind = PlainUnionMemberKind.None;
+		if (!_schema.ByName.TryGetValue(member.TypeName, out var def))
+			return false;
+		if (def is StructDef)
+		{
+			typeName = member.TypeName;
+			kind = PlainUnionMemberKind.Struct;
+			return true;
+		}
+		if (def is EnumDef)
+		{
+			typeName = member.TypeName;
+			kind = PlainUnionMemberKind.Enum;
+			return true;
+		}
+		if (def is not TableDef table)
+			return false;
+		if (table.PlainStruct)
+		{
+			typeName = PlainName(table);
+			kind = PlainUnionMemberKind.PlainTable;
+			return true;
+		}
+		typeName = "Offset<" + member.TypeName + "Ref>";
+		kind = PlainUnionMemberKind.RefTable;
+		return true;
 	}
 }

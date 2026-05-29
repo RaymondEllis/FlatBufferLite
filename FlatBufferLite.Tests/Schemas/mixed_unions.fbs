@@ -1,0 +1,28 @@
+attribute "plain_struct";
+
+namespace FlatBufferLite.MixedUnions;
+
+struct MixedPoint {
+	x: int;
+	y: int;
+}
+
+table MixedCircle {
+	r: float;
+}
+
+union MixedValue {
+	MixedPoint,
+	MixedCircle,
+}
+
+table MixedScene {
+	value: MixedValue;
+	after: int;
+}
+
+table MixedPlainHolder (plain_struct) {
+	value: MixedValue;
+}
+
+root_type MixedScene;

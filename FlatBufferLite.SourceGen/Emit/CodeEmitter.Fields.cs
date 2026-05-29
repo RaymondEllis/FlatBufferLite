@@ -61,14 +61,15 @@ public sealed partial class CodeEmitter
 		if (f.Type.IsUnion)
 		{
 			var unionName = f.Type.ReferencedName!;
+			var unionTypeName = _refUnions.Contains(unionName) ? RefUnionName(unionName) : unionName;
 			int typeVto = vto;
 			int dataVto = vto + 2;
 			int typeAbsInline = f.InlineOffset + 4;
 			EmitScalarProperty(unionName + "Kind", "byte", propName + "Type", typeVto, typeAbsInline, "0", castUnderlying: "byte");
 			if (_refUnions.Contains(unionName))
 			{
-				_sb.Append("\tpublic ").Append(unionName).Append(' ').Append(propName)
-					.Append(" => new ").Append(unionName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(dataVto)
+				_sb.Append("\tpublic ").Append(unionTypeName).Append(' ').Append(propName)
+					.Append(" => new ").Append(unionTypeName).Append("(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(dataVto)
 					.Append("), Vtable.Read<byte>(_buf, _pos, ").Append(typeVto).AppendLine(", 0));");
 			}
 			else

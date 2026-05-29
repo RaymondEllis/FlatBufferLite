@@ -78,7 +78,10 @@ public sealed partial class CodeEmitter
 					EmitStruct(_schema.Structs[i]);
 			for (int i = 0; i < unionCount; i++)
 				if (_schema.Unions[i].Namespace == ns)
+				{
 					EmitUnion(_schema.Unions[i]);
+					EmitPlainUnion(_schema.Unions[i]);
+				}
 			for (int i = 0; i < tableCount; i++)
 				if (_schema.Tables[i].Namespace == ns)
 					EmitTable(_schema.Tables[i]);

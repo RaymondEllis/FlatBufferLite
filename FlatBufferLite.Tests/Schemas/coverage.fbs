@@ -19,6 +19,7 @@ struct Size {
 
 // All-struct union members → EmitContiguousUnion path (generated as value-type struct)
 union PointOrSize { Point, Size }
+union DirectionOrPoint { Direction, Point }
 
 // Enum field with non-zero schema default → was bugged in EmitTableField (getter ignored DefaultValue)
 // Vector of enum → exercises EmitVectorReader EnumDef branch
