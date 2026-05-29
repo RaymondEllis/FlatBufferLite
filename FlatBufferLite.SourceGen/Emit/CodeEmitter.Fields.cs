@@ -107,6 +107,8 @@ public sealed partial class CodeEmitter
 		{
 			string cs = elt.ToCSharpKeyword();
 			_sb.Append("\tpublic FlatVector<").Append(cs).Append("> ").Append(propName).Append(" => new FlatVector<").Append(cs).Append(">(_buf, Vtable.ReadIndirect(_buf, _pos, ").Append(vto).AppendLine("));");
+			if (elt == SchemaBaseType.UByte && f.IsFlexBuffer)
+				_sb.Append("\tpublic FlexBuffer ").Append(propName).Append("FlexBuffer => FlexBuffer.GetRoot(").Append(propName).AppendLine(".AsSpan);");
 			if (elt == SchemaBaseType.UByte && !string.IsNullOrEmpty(f.NestedFlatBufferType) && IsValidCSharpIdentifier(f.NestedFlatBufferType!))
 				_sb.Append("\tpublic ").Append(f.NestedFlatBufferType).Append("Ref ").Append(propName).Append("Nested => ").Append(f.NestedFlatBufferType).Append("Ref.GetRootAs(").Append(propName).AppendLine(".AsSpan);");
 			return;

@@ -49,7 +49,7 @@ The source generator parses `.fbs` files and supports the following FlatBuffers 
 | Field attribute: `key` → `LookupByKey` on vector | ✅ |
 | Field attribute: `hash` | ❌ (parsed only; hashing not applied) |
 | Field attribute: `nested_flatbuffer` → typed `XxxNested` accessor | ✅ |
-| Field attribute: `flexbuffer` | ❌ (parsed only; FlexBuffers not supported) |
+| Field attribute: `flexbuffer` → `XxxFlexBuffer` accessor | ✅ |
 | Field attribute: `force_align` (struct fields) | ✅ |
 | Type attribute: `force_align` (structs) | ✅ |
 | Type attribute: `plain_struct` (tables) → plain C# struct DTO | ✅ |
@@ -174,6 +174,40 @@ var read  = new ScoreRef(b.Buffer, score.BufferPos);
 
 long v = read.Value; // 9_876_543_210
 ```
+
+---
+
+## FlexBuffers
+
+FlatBufferLite includes a small FlexBuffers runtime for schema-less values stored in `[ubyte] (flexbuffer)` fields. The source generator keeps the normal byte-vector accessor and also emits an `XxxFlexBuffer` convenience accessor:
+
+```fbs
+table Event {
+  payload: [ubyte] (flexbuffer);
+}
+```
+
+```csharp
+Span<byte> flexBuf = stackalloc byte[256];
+var fb = new FlexBufferBuilder(flexBuf);
+var name = fb.CreateString("spawn"u8);
+var values = fb.CreateVector(stackalloc FlexBufferValue[]
+{
+    FlexBufferValue.Int(42),
+    name,
+    FlexBufferValue.Bool(true),
+});
+ReadOnlySpan<byte> payloadBytes = fb.Finish(values);
+
+VectorOffset payload = builder.CreateVector<byte>(payloadBytes);
+EventRef.Create(ref builder, payload: payload);
+
+var eventRef = EventRef.GetRootAs(bytes);
+FlexBuffer payloadFlex = eventRef.PayloadFlexBuffer;
+long firstValue = payloadFlex.AsVector[0].AsInt64;
+```
+
+Supported FlexBuffer value kinds are null, bool, signed/unsigned integers, floats, strings, blobs, and heterogeneous vectors.
 
 ---
 
