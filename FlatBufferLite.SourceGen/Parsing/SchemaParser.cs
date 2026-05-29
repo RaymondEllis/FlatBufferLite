@@ -338,12 +338,21 @@ public sealed class SchemaParser
 
 	static bool TryLookupFile(IReadOnlyDictionary<string, string> files, string path, out string? content)
 	{
-		if (files.TryGetValue(path, out content!))
+		if (files.TryGetValue(path, out var found))
+		{
+			content = found;
 			return true;
+		}
 		// Try the other separator style; fileContents keys may use backslashes (Roslyn
 		// on Windows) or forward slashes (cross-platform dictionaries in tests).
 		var alt = path.IndexOf('/') >= 0 ? path.Replace('/', '\\') : path.Replace('\\', '/');
-		return files.TryGetValue(alt, out content!);
+		if (files.TryGetValue(alt, out found))
+		{
+			content = found;
+			return true;
+		}
+		content = null;
+		return false;
 	}
 
 	private static Schema ParseWithIncludes(string filePath, IReadOnlyDictionary<string, string> fileContents, HashSet<string> visited, List<string>? missingIncludes, CancellationToken cancellationToken = default)
