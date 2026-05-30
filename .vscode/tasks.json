@@ -51,7 +51,11 @@
 		{
 			"label": "dotnet pack",
 			"type": "shell",
-			"command": "dotnet pack ${workspaceFolder}/FlatBufferLite/FlatBufferLite.csproj --configuration Release --output ${workspaceFolder}/nupkg",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"dotnet pack ${workspaceFolder}/FlatBufferLite/FlatBufferLite.csproj --configuration Release --output ${workspaceFolder}/nupkg && dotnet pack ${workspaceFolder}/FlatBufferLite.SourceGen/FlatBufferLite.SourceGen.csproj --configuration Release --output ${workspaceFolder}/nupkg"
+			],
 			"problemMatcher": ["$msCompile"]
 		}
 	]
