@@ -88,6 +88,13 @@ public class PlainStructTests
 	[Fact]
 	public void PlainStruct_CollectionFieldsRoundTripWithProvidedLists()
 	{
+		var prevTitleCreate = FlatBufferCollections<byte>.Create;
+		var prevScoresCreate = FlatBufferCollections<int>.Create;
+		var prevQualitiesCreate = FlatBufferCollections<Quality>.Create;
+		var prevNamesCreate = FlatBufferPlainVectors<IFlatBufferCollection<byte>>.Create;
+		var prevItemsCreate = FlatBufferPlainVectors<Item>.Create;
+		try
+		{
 		SetCollectionCreates();
 		Span<byte> buffer = stackalloc byte[4096];
 		var builder = new FlatBufferBuilder(buffer);
@@ -132,6 +139,15 @@ public class PlainStructTests
 		Assert.Equal(3.5f, read.Items[0].Pos.X);
 		Assert.Equal(-4.5f, read.Items[0].Pos.Y);
 		Assert.Equal(Quality.High, read.Items[0].Quality);
+		}
+		finally
+		{
+			FlatBufferCollections<byte>.Create = prevTitleCreate;
+			FlatBufferCollections<int>.Create = prevScoresCreate;
+			FlatBufferCollections<Quality>.Create = prevQualitiesCreate;
+			FlatBufferPlainVectors<IFlatBufferCollection<byte>>.Create = prevNamesCreate;
+			FlatBufferPlainVectors<Item>.Create = prevItemsCreate;
+		}
 	}
 
 	static void SetCollectionCreates()

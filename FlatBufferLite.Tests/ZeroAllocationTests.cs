@@ -80,6 +80,7 @@ public class ZeroAllocationTests
 		}
 		long after = GC.GetAllocatedBytesForCurrentThread();
 		Assert.Equal(0, after - before);
+		Assert.Equal(10_080_000L, sum);
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
 		static void WarmVector(byte[] bytes)

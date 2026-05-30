@@ -89,7 +89,7 @@ public class FlexBufferTests
 		var bytes = b.Finish(FlexBufferValue.Null);
 
 		Assert.Equal(1, bytes[^2]);
-		Assert.Equal(1, 1 << (bytes[^1] & 3));
+		Assert.Equal(0, bytes[^1] & 3);
 		Assert.True(FlexBuffer.GetRoot(bytes).IsNull);
 	}
 

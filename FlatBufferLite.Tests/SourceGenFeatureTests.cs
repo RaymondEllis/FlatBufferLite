@@ -269,7 +269,8 @@ public class SourceGenFeatureTests
 		var b = new FlatBufferBuilder(buf);
 		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 1, hp: 50);
 		var span = b.Finish();
-		Assert.True(needed >= span.Length);
+		Assert.True(needed >= span.Length, $"GetMaxSize {needed} was too small for actual output {span.Length}");
+		Assert.True(needed <= span.Length * 2, $"GetMaxSize {needed} over-counted: actual was {span.Length}");
 	}
 
 	[Fact]
@@ -284,24 +285,19 @@ public class SourceGenFeatureTests
 		var inv = b.CreateVector<int>(new[] { 10, 20, 30 });
 		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
 		var bytes = b.Finish();
-		Assert.True(needed >= bytes.Length);
+		Assert.True(needed >= bytes.Length, $"GetMaxSize {needed} was too small for actual output {bytes.Length}");
+		Assert.True(needed <= bytes.Length * 2, $"GetMaxSize {needed} over-counted: actual was {bytes.Length}");
 	}
 
 	[Fact]
 	public void FieldAttribute_Required_RuntimeEnforced()
 	{
-		var buf = new byte[256];
-		var b = new FlatBufferBuilder(buf);
-		bool threw = false;
-		try
+		Assert.Throws<InvalidOperationException>(() =>
 		{
+			var buf = new byte[256];
+			var b = new FlatBufferBuilder(buf);
 			FlatBufferLite.Req.DocRef.Create(ref b, title: default);
-		}
-		catch (InvalidOperationException)
-		{
-			threw = true;
-		}
-		Assert.True(threw, "Expected InvalidOperationException for required field with offset 0.");
+		});
 	}
 
 	[Fact]
@@ -334,8 +330,8 @@ public class SourceGenFeatureTests
 		ReadOnlySpan<int> offsets = stackalloc int[] { e1.BufferPos, e2.BufferPos, e3.BufferPos };
 		var vec = b.CreateVectorOfOffsets(offsets);
 
-		var outer = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
-		_ = b.Finish();
+		_ = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
+		b.Finish();
 
 		var v = new FlatBufferLite.Attr.EntryRefVector(buf, vec);
 		Assert.Equal(3, v.Length);
@@ -367,8 +363,8 @@ public class SourceGenFeatureTests
 		ReadOnlySpan<int> offsets = stackalloc int[] { e2.BufferPos, e3.BufferPos, e1.BufferPos };
 		var vec = b.CreateVectorOfOffsets(offsets);
 
-		var outer = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
-		_ = b.Finish();
+		_ = FlatBufferLite.Attr.InnerRef.Create(ref b, value: 0);
+		b.Finish();
 
 		var v = new FlatBufferLite.Attr.EntryRefVector(buf, vec);
 		Assert.Equal(3, v.Length);

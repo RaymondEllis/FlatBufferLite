@@ -29,7 +29,7 @@ public class GeneratedSchemaTests
 		var name = b.CreateString("Alice"u8);
 		var invOff = b.CreateVector<int>(inv);
 
-		var pb = PlayerRef.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, inventory: invOff);
+		_ = PlayerRef.Create(ref b, id: 42, name: name, hp: 250, status: Status.Pending, inventory: invOff);
 
 		var span = b.Finish();
 		var player = PlayerRef.GetRootAs(span);

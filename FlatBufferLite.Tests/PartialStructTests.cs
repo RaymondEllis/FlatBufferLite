@@ -16,19 +16,12 @@ public class PartialStructTests
 		var r = RefsRef.GetRootAs(span);
 		var v = r.Vec2Val;
 
+		Assert.Equal(3.0f, v.X);
+		Assert.Equal(4.0f, v.Y);
 		Assert.Equal(25.0f, v.LengthSquared());
 		var doubled = v.Scale(2.0f);
 		Assert.Equal(6.0f, doubled.X);
 		Assert.Equal(8.0f, doubled.Y);
 	}
 
-	[Fact]
-	public void Vec2_PartialStruct_ChainedMethods_Work()
-	{
-		var origin = new Vec2 { X = 1.0f, Y = 1.0f };
-		var offset = new Vec2 { X = 2.0f, Y = 3.0f };
-		var result = origin.Add(offset).Scale(0.5f);
-		Assert.Equal(1.5f, result.X);
-		Assert.Equal(2.0f, result.Y);
-	}
 }

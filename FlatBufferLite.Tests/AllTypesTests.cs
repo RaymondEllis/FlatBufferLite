@@ -138,18 +138,26 @@ public class AllTypesTests
 		var ri = v.IntVec.AsSpan;
 		Assert.Equal(4, ri.Length);
 		Assert.Equal(-1, ri[0]);
+		Assert.Equal(0, ri[1]);
+		Assert.Equal(1, ri[2]);
 		Assert.Equal(int.MaxValue, ri[3]);
 
 		var rb2 = v.ByteVec.AsSpan;
 		Assert.Equal(3, rb2.Length);
+		Assert.Equal((byte)0, rb2[0]);
 		Assert.Equal((byte)127, rb2[1]);
+		Assert.Equal((byte)255, rb2[2]);
 
 		var rf = v.FloatVec.AsSpan;
 		Assert.Equal(3, rf.Length);
+		Assert.Equal(1.0f, rf[0]);
+		Assert.Equal(-1.0f, rf[1]);
 		Assert.Equal(0.5f, rf[2]);
 
 		var rl = v.LongVec.AsSpan;
 		Assert.Equal(3, rl.Length);
+		Assert.Equal(long.MinValue, rl[0]);
+		Assert.Equal(0L, rl[1]);
 		Assert.Equal(long.MaxValue, rl[2]);
 	}
 
@@ -219,6 +227,9 @@ public class AllTypesTests
 		var v = new VectorsRef(buf, vb.BufferPos);
 
 		Assert.False(v.IntVec.IsValid);
+		Assert.False(v.ByteVec.IsValid);
+		Assert.False(v.FloatVec.IsValid);
+		Assert.False(v.LongVec.IsValid);
 		Assert.False(v.StrVec.IsValid);
 		Assert.False(v.Vec2Vec.IsValid);
 	}
