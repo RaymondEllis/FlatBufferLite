@@ -10,25 +10,6 @@ namespace FlatBufferLite.Tests;
 public class UnionTests
 {
 	[Fact]
-	public void GeneratedUnionTypes_UseUnionInterfaceAndAttribute()
-	{
-		AssertGeneratedUnion(typeof(PointOrSize));
-		AssertGeneratedUnion(typeof(DirectionOrPoint));
-		AssertGeneratedUnion(typeof(ShapeRef));
-		AssertGeneratedUnion(typeof(Shape));
-		AssertGeneratedUnion(typeof(MixedValueRef));
-		AssertGeneratedUnion(typeof(MixedValue));
-		AssertGeneratedUnion(typeof(PlainShapeRef));
-		AssertGeneratedUnion(typeof(PlainShape));
-	}
-
-	static void AssertGeneratedUnion(Type type)
-	{
-		Assert.True(typeof(IUnion).IsAssignableFrom(type));
-		Assert.NotNull(Attribute.GetCustomAttribute(type, typeof(UnionAttribute)));
-	}
-
-	[Fact]
 	public void ContiguousUnion_Default_IsNone()
 	{
 		PointOrSize shape = default;

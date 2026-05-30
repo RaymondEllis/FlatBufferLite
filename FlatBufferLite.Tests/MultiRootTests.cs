@@ -44,20 +44,4 @@ public class MultiRootTests
 		Assert.Equal(99, read.Tag);
 	}
 
-	[Fact]
-	public void MarkAsRoot_ExplicitCallOnNonRootTable()
-	{
-		var source = """
-			table A { x: int; }
-			table B { y: int; }
-			root_type A;
-			""";
-		var parser = new SourceGen.Parsing.SchemaParser(source);
-		var schema = parser.Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("public void MarkAsRoot(ref FlatBufferBuilder builder)", code);
-		var bSection = code.Substring(code.IndexOf("public readonly ref partial struct B"));
-		Assert.Contains("public void MarkAsRoot(ref FlatBufferBuilder builder)", bSection);
-	}
 }

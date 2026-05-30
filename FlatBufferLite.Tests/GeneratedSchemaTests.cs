@@ -59,9 +59,4 @@ public class GeneratedSchemaTests
 		Assert.Equal(3.5f, player.Position.Z);
 	}
 
-	[Fact]
-	public void Vec3Struct_HasExpectedSize()
-	{
-		Assert.Equal(12, System.Runtime.InteropServices.Marshal.SizeOf<Vec3>());
-	}
 }

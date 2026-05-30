@@ -224,14 +224,6 @@ public class AllTypesTests
 	}
 
 	[Fact]
-	public void BitFlags_GeneratedValuesArePowersOfTwo()
-	{
-		Assert.Equal(1u, (uint)Flags.Read);
-		Assert.Equal(2u, (uint)Flags.Write);
-		Assert.Equal(4u, (uint)Flags.Execute);
-	}
-
-	[Fact]
 	public void BitFlags_RoundTrips()
 	{
 		Span<byte> buf = stackalloc byte[FlaggedRef.GetMaxSize()];

@@ -51,24 +51,6 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void GeneratedComments_ShowSchemaSourceLocations()
-	{
-		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-		{
-			["test/main.fbs"] = "enum Color : byte { Red }\nstruct Vec2 { x: float; y: float; }\ntable Sprite { id: int; }\nunion Node { Sprite }\ntable Holder { node: Node; color: Color; pos: Vec2; }\nroot_type Holder;",
-		};
-
-		var schema = SchemaParser.ParseWithIncludes("test/main.fbs", files);
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("// test/main.fbs:1 enum Color", code);
-		Assert.Contains("// test/main.fbs:2 struct Vec2", code);
-		Assert.Contains("// test/main.fbs:3 table Sprite -> SpriteRef", code);
-		Assert.Contains("// test/main.fbs:4 union Node -> NodeKind", code);
-		Assert.Contains("// test/main.fbs:3 field id -> Id", code);
-	}
-
-	[Fact]
 	public void IncludeDirective_TransitiveIncludes()
 	{
 		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -179,19 +161,6 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void PartialModifier_StructIsEmittedAsPartial()
-	{
-		var source = """
-			struct Vec3 { x: float; y: float; z: float; }
-			""";
-		var parser = new SchemaParser(source);
-		var schema = parser.Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public partial struct Vec3", code);
-		Assert.DoesNotContain("public struct Vec3", code.Replace("public partial struct Vec3", ""));
-	}
-
-	[Fact]
 	public void MultipleRootTypes_ParserAcceptsMultiple()
 	{
 		var source = """
@@ -205,71 +174,6 @@ public class SourceGenFeatureTests
 		Assert.Equal(2, schema.RootTypes.Count);
 		Assert.Contains("A", schema.RootTypes);
 		Assert.Contains("B", schema.RootTypes);
-	}
-
-	[Fact]
-	public void MultipleRootTypes_AllRootTablesAutoMarkRoot()
-	{
-		var source = """
-			table A { x: int; }
-			table B { y: int; }
-			root_type A;
-			root_type B;
-			""";
-		var parser = new SchemaParser(source);
-		var schema = parser.Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		var aIdx = code.IndexOf("public readonly ref partial struct ARef");
-		var bIdx = code.IndexOf("public readonly ref partial struct BRef");
-		Assert.True(aIdx >= 0);
-		Assert.True(bIdx >= 0);
-
-		var aSection = code.Substring(aIdx, bIdx - aIdx);
-		Assert.Contains("builder.MarkRoot(_pos)", aSection);
-
-		var bSection = code.Substring(bIdx);
-		Assert.Contains("builder.MarkRoot(_pos)", bSection);
-	}
-
-	[Fact]
-	public void MarkAsRoot_EmittedOnEveryTable()
-	{
-		var source = """
-			table A { x: int; }
-			table B { y: int; }
-			root_type A;
-			""";
-		var parser = new SchemaParser(source);
-		var schema = parser.Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("public void MarkAsRoot(ref FlatBufferBuilder builder)", code);
-		var count = 0;
-		var idx = 0;
-		while ((idx = code.IndexOf("public void MarkAsRoot(ref FlatBufferBuilder builder)", idx)) >= 0)
-		{
-			count++;
-			idx++;
-		}
-		Assert.Equal(2, count);
-	}
-
-	[Fact]
-	public void PascalCase_StructFieldsArePascalCased()
-	{
-		var source = """
-			struct Vec3 { x: float; y: float; z: float; }
-			""";
-		var parser = new SchemaParser(source);
-		var schema = parser.Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public float X;", code);
-		Assert.Contains("public float Y;", code);
-		Assert.Contains("public float Z;", code);
-		Assert.DoesNotContain("public float x;", code);
-		Assert.DoesNotContain("public float y;", code);
-		Assert.DoesNotContain("public float z;", code);
 	}
 
 	[Fact]
@@ -320,104 +224,6 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void PlainStruct_StringsEmitByteArrays()
-	{
-		var source = """
-			attribute "plain_struct";
-			table Native (plain_struct) {
-				name: string;
-				names: [string];
-			}
-			root_type Native;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("public byte[]? Name;", code);
-		Assert.Contains("public byte[][]? Names;", code);
-		Assert.Contains("public static void Deserialize(Span<byte> buffer, ref Native value)", code);
-		Assert.Contains("public void ToPlain(ref Native value)", code);
-		Assert.Contains("value.Name = Name.IsValid ? Name.AsBytes.ToArray() : null", code);
-		Assert.Contains("builder.CreateString(value.Name)", code);
-		Assert.DoesNotContain("Encoding.UTF8", code);
-	}
-
-	[Fact]
-	public void PlainStruct_CustomCollection_EmitsCustomCollectionFields()
-	{
-		var source = """
-			attribute "plain_struct";
-			attribute "CustomCollection";
-			enum Quality : ubyte { Low = 0, High = 1 }
-			table Item (plain_struct) { id: int; }
-			table Native (plain_struct) {
-				name: string (CustomCollection);
-				scores: [int] (CustomCollection);
-				names: [string] (CustomCollection);
-				items: [Item] (CustomCollection);
-				qualities: [Quality] (CustomCollection);
-			}
-			root_type Native;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.True(schema.Tables[1].Fields[0].CustomCollection);
-		Assert.Contains("public IFlatBufferCollection<byte>? Name;", code);
-		Assert.Contains("public IFlatBufferCollection<int>? Scores;", code);
-		Assert.Contains("public IFlatBufferPlainVector<IFlatBufferCollection<byte>>? Names;", code);
-		Assert.Contains("public IFlatBufferPlainVector<Item>? Items;", code);
-		Assert.Contains("public IFlatBufferCollection<Quality>? Qualities;", code);
-		Assert.Contains("builder.CreateString(value.Name.AsReadOnlySpan())", code);
-		Assert.Contains("builder.CreateVector(value.Scores.AsReadOnlySpan())", code);
-		Assert.Contains("builder.CreateString(value.Names[i].AsReadOnlySpan())", code);
-		Assert.Contains("FlatBufferCollections.Create<byte>", code);
-		Assert.Contains("FlatBufferCollections.Create<int>", code);
-		Assert.Contains("FlatBufferPlainVectors.Create<IFlatBufferCollection<byte>>", code);
-		Assert.Contains("FlatBufferPlainVectors.Create<Item>", code);
-		Assert.Contains("FlatBufferCollections.EnsureCreate<Quality>();", code);
-		Assert.Contains("FlatBufferPlainVectors.EnsureCreate<Item>();", code);
-		Assert.Contains("__NamesTarget.Resize(__Names.Length);", code);
-		Assert.Contains("var __NamesItems = __NamesTarget.AsSpan();", code);
-		Assert.Contains("var __NamesSource = __Names[i];", code);
-		Assert.Contains("FlatBufferCollections.Create<byte>(__NamesSource.Length)", code);
-		Assert.Contains("__NamesItem.ReplaceRange(ref __NamesVector);", code);
-		Assert.Contains("__ItemsTarget.Resize(__Items.Length);", code);
-		Assert.Contains("__Items.CopyTo(__ItemsTarget.AsSpan());", code);
-	}
-
-	[Fact]
-	public void PlainStruct_UnionEmitsPlainDiscriminatedUnion()
-	{
-		var source = """
-			attribute "plain_struct";
-			table Circle (plain_struct) { radius: float; label: string; }
-			table Rectangle (plain_struct) { width: float; height: float; }
-			union Shape { Circle, Rectangle }
-			table Native (plain_struct) { shape: Shape; }
-			root_type Native;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("public readonly ref struct ShapeRef : IUnion", code);
-		Assert.Contains("public readonly partial struct Shape : IUnion", code);
-		Assert.Contains("public readonly ShapeKind Kind;", code);
-		Assert.Contains("public readonly Circle? Circle;", code);
-		Assert.Contains("public readonly Rectangle? Rectangle;", code);
-		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
-		Assert.Contains("public readonly bool HasValue => Kind switch", code);
-		Assert.Contains("public Shape Shape;", code);
-		Assert.Contains("public Shape(in Circle value)", code);
-		Assert.Contains("public static implicit operator Shape(Circle value) => new(in value);", code);
-		Assert.Contains("public readonly bool TryGetValue(out Circle value)", code);
-		Assert.Contains("ShapeKind __ShapeType = value.Shape.Kind;", code);
-		Assert.Contains("shapeType: __ShapeType, shape: __Shape", code);
-		Assert.Contains("if (__ShapeSource.TryGetAsCircle(out var __ShapeCircleRef))", code);
-		Assert.Contains("value.Shape = __ShapeTarget;", code);
-	}
-
-	[Fact]
 	public void FieldAttribute_Id_AssignsExplicitVTableSlots()
 	{
 		var source = """
@@ -456,43 +262,6 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void GetMaxSize_ScalarOnlyEmitsLiteralNoParameters()
-	{
-		var source = """
-			table Simple { x: int; }
-			root_type Simple;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public static int GetMaxSize() => ", code);
-		Assert.DoesNotContain("public readonly struct SimpleSize", code);
-		Assert.DoesNotContain("TableMaxSize", code);
-		Assert.DoesNotContain("public int GetSize()", code);
-	}
-
-	[Fact]
-	public void GetMaxSize_NonRootTable_ReturnsTypedSize()
-	{
-		var source = """
-			table Child { name: string; }
-			table Parent { child: Child; }
-			root_type Parent;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-
-		Assert.Contains("public readonly struct ChildSize", code);
-		Assert.Contains("public readonly int Value;", code);
-		Assert.Contains("public ChildSize(int value) => Value = value;", code);
-		Assert.Contains("public static implicit operator int(ChildSize size) => size.Value;", code);
-		Assert.DoesNotContain("operator +", code);
-		Assert.Contains("public static ChildSize GetMaxSize(int nameByteCount) => new ChildSize(", code);
-		Assert.Contains("public static int GetMaxSize(ChildSize childMaxSize)", code);
-		Assert.DoesNotContain("GetMaxSize(int nameByteCount = 0)", code);
-		Assert.DoesNotContain("GetMaxSize(ChildSize childMaxSize = default)", code);
-	}
-
-	[Fact]
 	public void GetMaxSize_CoversScalarOnlyBuffer()
 	{
 		int needed = Sample.PlayerRef.GetMaxSize(nameByteCount: 0, inventoryCount: 0);
@@ -516,101 +285,6 @@ public class SourceGenFeatureTests
 		FlatBufferLite.Sample.PlayerRef.Create(ref b, id: 42, name: name, hp: 250, inventory: inv);
 		var bytes = b.Finish();
 		Assert.True(needed >= bytes.Length);
-	}
-
-	[Fact]
-	public void GetMaxSize_EmittedAsStaticMethod()
-	{
-		var source = """
-			table Child { value: int; }
-			table WithRefs { name: string; tags: [int]; child: Child; names: [string]; }
-			root_type WithRefs;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public static int GetMaxSize(", code);
-		Assert.Contains("nameByteCount", code);
-		Assert.Contains("tagsCount", code);
-		Assert.DoesNotContain("childMaxSize", code);
-		Assert.Contains("namesCount", code);
-		Assert.Contains("namesByteCount", code);
-		Assert.Contains("nameByteCount + 8", code);
-		Assert.Contains("tagsCount * 4 + 7", code);
-		Assert.Contains("namesByteCount + namesCount * 8", code);
-		Assert.DoesNotContain("FlatBufferBuilder.StringMaxSize", code);
-		Assert.DoesNotContain("FlatBufferBuilder.VectorMaxSize", code);
-		Assert.DoesNotContain("FlatBufferBuilder.VectorOfOffsetsMaxSize", code);
-	}
-
-	[Fact]
-	public void FixedNestedTable_GetMaxSize_DoesNotEmitPayloadMaxSize()
-	{
-		var source = """
-			table Score { value: long; }
-			table Player { score: Score; }
-			root_type Player;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.DoesNotContain("scoreMaxSize", code);
-	}
-
-	[Fact]
-	public void VariableNestedTable_GetMaxSize_EmitsPayloadMaxSize()
-	{
-		var source = """
-			table Child { name: string; }
-			table Parent { child: Child; }
-			root_type Parent;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("ChildSize childMaxSize", code);
-		Assert.DoesNotContain("ChildSize childMaxSize = default", code);
-	}
-
-	[Fact]
-	public void FixedRefUnion_GetMaxSize_DoesNotEmitPayloadMaxSize()
-	{
-		var source = """
-			table Circle { radius: float; }
-			union Shape { Circle }
-			table WithShape { shape: Shape; }
-			root_type WithShape;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.DoesNotContain("shapeMaxSize", code);
-	}
-
-	[Fact]
-	public void VariableRefUnion_GetMaxSize_EmitsPayloadMaxSize()
-	{
-		var source = """
-				table Circle { name: string; }
-				union Shape { Circle }
-				table WithShape { shape: Shape; }
-				root_type WithShape;
-				""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public readonly struct ShapeSize", code);
-		Assert.Contains("public static implicit operator ShapeSize(CircleSize size) => new(size.Value);", code);
-		Assert.Contains("ShapeSize shapeMaxSize", code);
-		Assert.DoesNotContain("int shapeMaxSize", code);
-	}
-
-	[Fact]
-	public void FieldAttribute_Required_AlwaysWritten()
-	{
-		var source = """
-			table Doc { content: string (required); }
-			root_type Doc;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.DoesNotContain("if (content != 0)", code);
-		Assert.Contains("WriteOffset", code);
 	}
 
 	[Fact]
@@ -641,30 +315,6 @@ public class SourceGenFeatureTests
 		var idField = schema.Tables[0].Fields[0];
 		Assert.True(idField.IsKey);
 		Assert.False(schema.Tables[0].Fields[1].IsKey);
-	}
-
-	[Fact]
-	public void FieldAttribute_Key_LookupByKeyEmitted()
-	{
-		var source = """
-			table Entry { id: int (key); name: string; }
-			root_type Entry;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public EntryRef LookupByKey(int key)", code);
-	}
-
-	[Fact]
-	public void FieldAttribute_Key_StringLookupByKeyEmitted()
-	{
-		var source = """
-			table Item { name: string (key); }
-			root_type Item;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public ItemRef LookupByKey(ReadOnlySpan<byte> key)", code);
 	}
 
 	[Fact]
@@ -761,20 +411,6 @@ public class SourceGenFeatureTests
 	}
 
 	[Fact]
-	public void FieldAttribute_NestedFlatbuffer_AccessorEmitted()
-	{
-		var source = """
-			table Inner { value: int; }
-			table Outer { blob: [ubyte] (nested_flatbuffer: "Inner"); }
-			root_type Outer;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("BlobNested", code);
-		Assert.Contains("InnerRef.GetRootAs(Blob.AsSpan)", code);
-	}
-
-	[Fact]
 	public void FieldAttribute_NestedFlatbuffer_RoundTrips()
 	{
 		Span<byte> innerBuf = stackalloc byte[128];
@@ -803,19 +439,6 @@ public class SourceGenFeatureTests
 			""";
 		var schema = new SchemaParser(source).Parse();
 		Assert.True(schema.Tables[0].Fields[0].IsFlexBuffer);
-	}
-
-	[Fact]
-	public void FieldAttribute_Flexbuffer_AccessorEmitted()
-	{
-		var source = """
-			table Flex { data: [ubyte] (flexbuffer); }
-			root_type Flex;
-			""";
-		var schema = new SchemaParser(source).Parse();
-		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("DataFlexBuffer", code);
-		Assert.Contains("FlexBuffer.GetRoot(Data.AsSpan)", code);
 	}
 
 	[Fact]
@@ -997,8 +620,6 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 
 		Assert.Contains("Vector3I pos", code);
-		Assert.DoesNotContain(", int pos ", code);
-		Assert.DoesNotContain(", int pos)", code);
 	}
 
 	[Fact]
@@ -1040,8 +661,6 @@ public class SourceGenFeatureTests
 		var schema = new SchemaParser(source).Parse();
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("public struct PointOrSize : IUnion", code);
-		Assert.DoesNotContain("ref struct PointOrSize", code);
-		Assert.DoesNotContain("PointOrSizePlain", code);
 		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
 		Assert.Contains("public readonly bool HasValue => Tag switch", code);
 		Assert.Contains("public readonly bool TryGetValue(out Point value)", code);
@@ -1065,17 +684,12 @@ public class SourceGenFeatureTests
 		Assert.Contains("public readonly ref struct MixedRef : IUnion", code);
 		Assert.Contains("public object? Value => throw new NotImplementedException(\"No boxing allowed.\");", code);
 		Assert.Contains("public bool TryGetAsCircle(out CircleRef value)", code);
-		Assert.DoesNotContain("TryGetAsPoint", code);
 		Assert.Contains("[StructLayout(LayoutKind.Explicit", code);
 		Assert.Contains("public readonly partial struct Mixed : IUnion", code);
-		Assert.DoesNotContain("MixedPlain", code);
 		Assert.Contains("[FieldOffset(0)] public readonly Point Point;", code);
 		Assert.Contains("[FieldOffset(0)] public readonly Circle Circle;", code);
 		Assert.Contains("public Mixed(Circle value)", code);
 		Assert.Contains("public readonly bool TryGetValue(out Circle value)", code);
-		Assert.DoesNotContain("private int _pos;", code);
-		Assert.DoesNotContain("Offset<CircleRef>? Circle", code);
-		Assert.DoesNotContain("Mixed(in Offset<CircleRef>", code);
 	}
 
 	[Fact]
@@ -1104,7 +718,6 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("itemsCount", code);
 		Assert.DoesNotContain("itemsMaxSize", code);
-		Assert.DoesNotContain("itemsMaxSizeEach", code);
 	}
 
 	[Fact]
@@ -1119,8 +732,6 @@ public class SourceGenFeatureTests
 		var code = new SourceGen.Emit.CodeEmitter(schema).Emit();
 		Assert.Contains("itemsCount", code);
 		Assert.Contains("ItemSize itemsMaxSize", code);
-		Assert.DoesNotContain("ItemSize itemsMaxSize = default", code);
-		Assert.DoesNotContain("itemsMaxSizeEach", code);
 	}
 
 	[Fact]

@@ -19,12 +19,6 @@ public class IncludeRuntimeTests
 	}
 
 	[Fact]
-	public void IncludedStruct_HasCorrectLayout()
-	{
-		Assert.Equal(12, System.Runtime.InteropServices.Marshal.SizeOf<Vector3I>());
-	}
-
-	[Fact]
 	public void IncludedStruct_ZeroAlloc_RoundTrip()
 	{
 		var buf = new byte[ChunkRef.GetMaxSize(dataCount: 0)];

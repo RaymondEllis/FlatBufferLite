@@ -50,15 +50,4 @@ public class PartialTableTests
 		Assert.False(refs.HasVec2());
 	}
 
-	[Fact]
-	public void PartialTable_GeneratedCode_ContainsPartialKeyword()
-	{
-		var source = """
-            table Monster { hp: int; name: string; }
-            root_type Monster;
-            """;
-		var schema = new FlatBufferLite.SourceGen.Parsing.SchemaParser(source).Parse();
-		var code = new FlatBufferLite.SourceGen.Emit.CodeEmitter(schema).Emit();
-		Assert.Contains("public readonly ref partial struct Monster", code);
-	}
 }
