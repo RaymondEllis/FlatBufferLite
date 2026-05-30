@@ -93,7 +93,7 @@ public sealed partial class CodeEmitter
 	void EmitCodeComment(string? comment)
 	{
 		if (comment is { Length: > 0 })
-			_w.Append("// ").AppendLine(comment);
+			_w.Append("/// <summary> ").Append(comment).AppendLine(" </summary>");
 	}
 
 	void EmitSchemaComment(string kind, string sourceName, string generatedName, SchemaLocation location)

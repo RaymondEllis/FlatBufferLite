@@ -38,9 +38,17 @@ public sealed partial class CodeEmitter
 	void EmitGetMaxSize(TableDef table)
 	{
 		var parameters = new List<string>();
+		var paramDocs = new List<(string Name, string? Description)>();
 		var terms = new List<string>();
 		bool isRootTable = IsRootTable(table);
 		int constantSize = FixedTableSize(table);
+
+		void AddParam(string param, string name, string? description = null)
+		{
+			parameters.Add(param);
+			paramDocs.Add((name, description));
+		}
+
 		foreach (var field in table.Fields)
 		{
 			if (field.Deprecated)
@@ -49,7 +57,7 @@ public sealed partial class CodeEmitter
 			if (field.Type.IsString)
 			{
 				string byteCountParameter = parameterPrefix + "ByteCount";
-				parameters.Add(IntParameter(byteCountParameter));
+				AddParam(IntParameter(byteCountParameter), byteCountParameter, "UTF-8 byte length of the " + field.Name + " string content.");
 				terms.Add(byteCountParameter + " + 8");
 			}
 			else if (field.Type.IsUnion)
@@ -61,7 +69,7 @@ public sealed partial class CodeEmitter
 					else
 					{
 						string maxSizeParameter = parameterPrefix + "MaxSize";
-						parameters.Add(SizeParameter(maxSizeParameter, union));
+						AddParam(SizeParameter(maxSizeParameter, union), maxSizeParameter, "Size budget for " + field.Name + ". Use " + union.Name + "Size implicit conversion from member GetMaxSize(...) result.");
 						terms.Add(maxSizeParameter);
 					}
 				}
@@ -75,7 +83,7 @@ public sealed partial class CodeEmitter
 					else
 					{
 						string maxSizeParameter = parameterPrefix + "MaxSize";
-						parameters.Add(SizeParameter(maxSizeParameter, nestedTable));
+						AddParam(SizeParameter(maxSizeParameter, nestedTable), maxSizeParameter, "Size budget for " + field.Name + ". Use " + nestedTable.Name + "Ref.GetMaxSize(...) to calculate.");
 						terms.Add(maxSizeParameter);
 					}
 				}
@@ -86,14 +94,14 @@ public sealed partial class CodeEmitter
 				var elementType = field.Type.ElementBase;
 				if (elementType.IsScalar())
 				{
-					parameters.Add(IntParameter(countParameter));
+					AddParam(IntParameter(countParameter), countParameter);
 					terms.Add(VectorSizeTerm(countParameter, elementType.InlineSize()));
 				}
 				else if (elementType == SchemaBaseType.String)
 				{
 					string byteCountParameter = parameterPrefix + "ByteCount";
-					parameters.Add(IntParameter(countParameter));
-					parameters.Add(IntParameter(byteCountParameter));
+					AddParam(IntParameter(countParameter), countParameter);
+					AddParam(IntParameter(byteCountParameter), byteCountParameter, "Total UTF-8 byte length of all " + field.Name + " strings combined.");
 					terms.Add(OffsetVectorSizeTerm(countParameter));
 					terms.Add(byteCountParameter + " + " + countParameter + " * 8");
 				}
@@ -103,15 +111,15 @@ public sealed partial class CodeEmitter
 					{
 						if (TryGetKnownRefUnionPayloadSize(union, new HashSet<string>()) is int knownPayloadSize)
 						{
-							parameters.Add(IntParameter(countParameter));
+							AddParam(IntParameter(countParameter), countParameter);
 							terms.Add(OffsetVectorSizeTerm(countParameter));
 							terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
 						}
 						else
 						{
 							string maxSizeParameter = parameterPrefix + "MaxSize";
-							parameters.Add(IntParameter(countParameter));
-							parameters.Add(SizeParameter(maxSizeParameter, union));
+							AddParam(IntParameter(countParameter), countParameter);
+							AddParam(SizeParameter(maxSizeParameter, union), maxSizeParameter, "Total size budget for all " + field.Name + " entries combined. Sum member GetMaxSize(...) for each element and convert to " + union.Name + "Size.");
 							terms.Add(OffsetVectorSizeTerm(countParameter));
 							terms.Add(maxSizeParameter);
 						}
@@ -123,45 +131,45 @@ public sealed partial class CodeEmitter
 					{
 						if (elementDef is StructDef structDef)
 						{
-							parameters.Add(IntParameter(countParameter));
+							AddParam(IntParameter(countParameter), countParameter);
 							terms.Add(VectorSizeTerm(countParameter, structDef.Size));
 						}
 						else if (elementDef is EnumDef enumDef)
 						{
-							parameters.Add(IntParameter(countParameter));
+							AddParam(IntParameter(countParameter), countParameter);
 							terms.Add(VectorSizeTerm(countParameter, enumDef.Underlying.InlineSize()));
 						}
 						else if (elementDef is TableDef nestedTable)
 						{
-							parameters.Add(IntParameter(countParameter));
+							AddParam(IntParameter(countParameter), countParameter);
 							terms.Add(OffsetVectorSizeTerm(countParameter));
 							if (TryGetKnownTableSize(nestedTable, new HashSet<string>()) is int knownPayloadSize)
 								terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
 							else
 							{
 								string maxSizeParameter = parameterPrefix + "MaxSize";
-								parameters.Add(SizeParameter(maxSizeParameter, nestedTable));
+								AddParam(SizeParameter(maxSizeParameter, nestedTable), maxSizeParameter, "Total size budget for all " + field.Name + " entries combined. Sum " + nestedTable.Name + "Ref.GetMaxSize(...) for each element individually.");
 								terms.Add(maxSizeParameter);
 							}
 						}
 						else if (elementDef is UnionDef union)
 						{
-							parameters.Add(IntParameter(countParameter));
+							AddParam(IntParameter(countParameter), countParameter);
 							terms.Add(OffsetVectorSizeTerm(countParameter));
 							if (TryGetKnownRefUnionPayloadSize(union, new HashSet<string>()) is int knownPayloadSize)
 								terms.Add(countParameter + " * " + knownPayloadSize.ToString(CultureInfo.InvariantCulture));
 							else
 							{
 								string maxSizeParameter = parameterPrefix + "MaxSize";
-								parameters.Add(SizeParameter(maxSizeParameter, union));
+								AddParam(SizeParameter(maxSizeParameter, union), maxSizeParameter, "Total size budget for all " + field.Name + " entries combined. Sum member GetMaxSize(...) for each element and convert to " + union.Name + "Size.");
 								terms.Add(maxSizeParameter);
 							}
 						}
 						else
 						{
 							string maxSizeParameter = parameterPrefix + "MaxSize";
-							parameters.Add(IntParameter(countParameter));
-							parameters.Add(IntParameter(maxSizeParameter));
+							AddParam(IntParameter(countParameter), countParameter);
+							AddParam(IntParameter(maxSizeParameter), maxSizeParameter, "Total size budget for all " + field.Name + " entries combined.");
 							terms.Add(OffsetVectorSizeTerm(countParameter));
 							terms.Add(maxSizeParameter);
 						}
@@ -170,6 +178,12 @@ public sealed partial class CodeEmitter
 			}
 		}
 
+		_w.AppendLine("/// <summary>Returns the maximum buffer size needed to serialize this table.</summary>");
+		foreach (var (name, description) in paramDocs)
+		{
+			if (description != null)
+				_w.Append("/// <param name=\"").Append(name).Append("\">").Append(description).AppendLine("</param>");
+		}
 		_w.Append("public static ").Append(isRootTable ? "int" : SizeTypeName(table)).Append(" GetMaxSize(");
 		for (int i = 0; i < parameters.Count; i++)
 		{
