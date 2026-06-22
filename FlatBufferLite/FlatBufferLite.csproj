@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>FlatBufferLite</PackageId>
-    <Version>0.0.3</Version>
+    <Version>0.0.4</Version>
     <Authors>Raymond Ellis</Authors>
     <Description>A lightweight, high-performance FlatBuffers implementation for .NET.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
